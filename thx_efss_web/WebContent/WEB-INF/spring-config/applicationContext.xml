@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans
+	xmlns="http://www.springframework.org/schema/beans"	
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:aop="http://www.springframework.org/schema/aop"	
+	xmlns:context="http://www.springframework.org/schema/context"
+	xmlns:mvc="http://www.springframework.org/schema/mvc"
+	xmlns:kie="http://drools.org/schema/kie-spring"
+	xmlns:tx="http://www.springframework.org/schema/tx"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-4.3.xsd
+		http://www.springframework.org/schema/aop http://www.springframework.org/schema/aop/spring-aop-4.3.xsd
+		http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context-4.3.xsd
+		http://www.springframework.org/schema/mvc http://www.springframework.org/schema/mvc/spring-mvc-4.3.xsd
+		http://drools.org/schema/kie-spring http://drools.org/schema/kie-spring.xsd
+		http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx-3.1.xsd
+	">
+		<context:component-scan base-package="com.thx.efss"></context:component-scan>
+		
+		<!-- enable transaction demarcation with annotations -->
+    	<tx:annotation-driven />
+		
+		<mvc:annotation-driven>
+			<mvc:argument-resolvers>
+				 <bean class="org.springframework.security.web.bind.support.AuthenticationPrincipalArgumentResolver" />
+			</mvc:argument-resolvers>
+		</mvc:annotation-driven>
+
+		<bean id="filterMultipartResolver" class="org.springframework.web.multipart.commons.CommonsMultipartResolver"> 
+			<property name="maxUploadSize" value="10000000" />
+			<property name="maxInMemorySize" value="10000000" /> 
+		</bean>		
+		
+ 		<bean id="placeHolder" class="com.thx.efss.common.config.PropertyPlaceholderConfigUtil">
+        	<property name="locations">
+        		<list>
+            		<value>file:///${thx.home}/config/jdbc.properties</value>
+            	</list>
+        	</property>
+    	</bean>
+    	
+    	<!-- Locale(Language) support setting:Start-->
+		<bean id="localeResolver" class="org.springframework.web.servlet.i18n.SessionLocaleResolver">
+			<property name="defaultLocale" value="ko" />
+		</bean>
+		<bean id="messageSource" class="org.springframework.context.support.ReloadableResourceBundleMessageSource">	
+		    <property name="basename" value="classpath:ApplicationResources" />
+		    <property name="defaultEncoding" value="UTF-8"/>
+		</bean>	
+		
+		<mvc:interceptors>
+    		<bean id="localeChangeInterceptor" class="org.springframework.web.servlet.i18n.LocaleChangeInterceptor">
+    			<property name="paramName" value="lang"/>
+    		</bean>    		
+    	</mvc:interceptors>
+		<!-- Locale(Language) support setting:End-->
+		
+		<!-- RuleEngine Settings:Start -->		
+		<!-- kie:kmodule id="reasoningModule">
+			<kie:kbase name="ruleBase" packages="rules"/>
+		</kie:kmodule-->
+		
+		<!-- bean id="kiePostProcessor" class="org.kie.spring.KModuleBeanFactoryPostProcessor"/-->
+		<!-- RuleEngine Settings:End -->
+    	
+		<bean id="dataSource" class="org.apache.ibatis.datasource.pooled.PooledDataSource">
+      		<property name="driver" value="${jdbc.driver}" />
+      		<property name="url" value="${jdbc.url}" />
+      		<property name="username" value="${jdbc.username}" />
+      		<property name="password" value="${jdbc.password}" />
+      		<property name="poolMaximumActiveConnections" value="150"/>
+      		<property name="poolMaximumIdleConnections" value="20"/>
+      		<property name="poolPingQuery" value="select 1"/>
+      		<property name="poolPingEnabled" value="true"/>
+      		<property name="poolPingConnectionsNotUsedFor" value="7200000"/>
+		</bean>
+    
+		<!-- transaction manager, use JtaTransactionManager for global tx -->
+    	<bean id="transactionManager" class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+        	<property name="dataSource" ref="dataSource" />
+    	</bean>
+    
+		<!-- define the SqlSessionFactory -->
+		<bean id="sqlSessionFactory" class="org.mybatis.spring.SqlSessionFactoryBean">
+			<property name="dataSource" ref="dataSource" />
+        	<property name="typeAliasesPackage" value="com.thx.efss" />
+        	<property name="mapperLocations" value="classpath:com/thx/efss/dao/query/${dbtype}/*.xml"></property>
+    	</bean>
+
+		<bean id="sqlSession" class="org.mybatis.spring.SqlSessionTemplate">
+			<constructor-arg index="0" ref="sqlSessionFactory" />
+		</bean>
+
+		<!-- scan for mappers and let them be autowired -->
+    	<bean id="mapperScannerConfigurer" class="org.mybatis.spring.mapper.MapperScannerConfigurer">
+        	<property name="basePackage" value="com.thx.efss.dao.mapper" />
+        	<property name="sqlSessionFactoryBeanName" value="sqlSessionFactory"/>
+    	</bean>
+    	
+</beans>

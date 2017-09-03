@@ -1,0 +1,86 @@
+<!DOCTYPE tiles-definitions PUBLIC "-//Apache Software Foundation//DTD Tiles Configuration 3.0//EN" "http://tiles.apache.org/dtds/tiles-config_3_0.dtd">
+
+<tiles-definitions>
+    <definition name="bootstrapTemplate" template="/WEB-INF/views/template/template.jsp">
+		<put-attribute name="title" value="" />
+		<put-attribute name="header" value="/WEB-INF/views/template/header.jsp" />
+		<put-attribute name="menu" value="/WEB-INF/views/template/menu.jsp" />
+		<put-attribute name="import" value="/WEB-INF/views/template/import.jsp" />				
+		<put-attribute name="body" value="/WEB-INF/views/template/body.jsp" />
+		<put-attribute name="footer" value="/WEB-INF/views/template/footer.jsp" />		
+	</definition>
+
+	<definition name="fileList" extends="bootstrapTemplate">
+    	<put-attribute name="title" value="File List" />    	
+    	<put-attribute name="menu" value="" />
+        <put-attribute name="body" value="/WEB-INF/views/file/file.jsp" />
+    </definition>
+	
+	<definition name="auth" extends="bootstrapTemplate">
+    	<put-attribute name="title" value="SignIn" />    	
+    	<put-attribute name="menu" value="" />
+        <put-attribute name="body" value="/WEB-INF/views/auth.jsp" />
+    </definition>
+    
+    <definition name="dashboard" extends="bootstrapTemplate">
+    	<put-attribute name="title" value="Dashboard" />    	
+        <put-attribute name="body" value="/WEB-INF/views/customizedDashboard.jsp" />
+    </definition>
+    
+    <definition name="monitoring" extends="bootstrapTemplate">
+    	<put-attribute name="title" value="Dashboard" />    	
+        <put-attribute name="body" value="/WEB-INF/views/monitoring.jsp" />
+    </definition>
+
+	<definition name="report" extends="bootstrapTemplate">
+    	<put-attribute name="title" value="Report" />    	
+        <put-attribute name="body" value="/WEB-INF/views/report.jsp" />
+    </definition>
+    <definition name="logs.documents" extends="bootstrapTemplate">
+        <put-attribute name="title" value="Usage Log" />        
+        <put-attribute name="body" value="/WEB-INF/views/logs/documents.jsp" />
+    </definition>
+	
+	<definition name="logs.policy" extends="bootstrapTemplate">
+        <put-attribute name="title" value="Policy Log" />        
+        <put-attribute name="body" value="/WEB-INF/views/logs/policy.jsp" />
+    </definition>
+    
+    <definition name="logs.license" extends="bootstrapTemplate">
+        <put-attribute name="title" value="License Log" />        
+        <put-attribute name="body" value="/WEB-INF/views/logs/license.jsp" />
+    </definition>
+
+	<definition name="statistics.documents" extends="bootstrapTemplate">
+        <put-attribute name="title" value="Usage Log" />        
+        <put-attribute name="body" value="/WEB-INF/views/statistics/documents.jsp" />
+    </definition>
+    
+    <definition name="error" extends="bootstrapTemplate">
+    	<put-attribute name="title" value="Error Page" />    	
+        <put-attribute name="body" value="/WEB-INF/views/error.jsp" />
+    </definition>
+   
+    <!-- Console Views: Start -->
+    <definition name="console.main" extends="bootstrapTemplate">
+        <put-attribute name="title" value="Console Main" />
+        <put-attribute name="body" value="/WEB-INF/views/console/console.jsp" />
+    </definition>
+    <!-- Console Views: End -->
+    
+    <!-- Settings Views: Start -->
+    <definition name=".*.*" extends="bootstrapTemplate">
+		<put-attribute name="title" value="{1}/{2}" />
+		<put-attribute name="menu" value="/WEB-INF/views/logs/tempbar.jsp" />
+		<put-attribute name="body" value="/WEB-INF/views/{1}/{2}.jsp" />
+		<put-attribute name="import" value="" />
+	</definition>
+    <!-- Settings Views: End -->
+    
+    <!-- Group Views: Start -->
+    <definition name="group.main" extends="bootstrapTemplate">
+        <put-attribute name="title" value="Group Main" />
+        <put-attribute name="body" value="/WEB-INF/views/group.jsp" />
+    </definition>
+    <!-- Group Views: End -->
+</tiles-definitions>

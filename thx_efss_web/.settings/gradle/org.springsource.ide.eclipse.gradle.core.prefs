@@ -1,0 +1,5 @@
+#org.springsource.ide.eclipse.gradle.core.preferences.GradleProjectPreferences
+#Sun Sep 03 12:14:40 KST 2017
+build.family.org.gradle.tooling.model.eclipse.HierarchicalEclipseProject=;../thx_efss_common;../thx_efss_controller;../thx_efss_dao;../thx_efss_service;
+org.springsource.ide.eclipse.gradle.linkedresources=
+org.springsource.ide.eclipse.gradle.rootprojectloc=

@@ -1,0 +1,6 @@
+rootProject.name = 'thx_efss_web'
+
+includeFlat 'thx_efss_controller'
+includeFlat 'thx_efss_service'
+includeFlat 'thx_efss_common'
+includeFlat 'thx_efss_dao'
