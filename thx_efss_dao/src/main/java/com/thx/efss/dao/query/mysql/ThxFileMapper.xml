@@ -11,6 +11,13 @@
 		<result property="entryDate" column="entry_date"/>
 	</resultMap>
 
+	<resultMap type="ThxFileProperty" id="ThxFilePropertyMap">
+		<result property="fileId" column="file_id"/>
+		<result property="originalFileName" column="property_key"/>
+		<result property="storedFileName" column="property_value"/>
+		<result property="entryDate" column="entry_date"/>
+	</resultMap>
+
     <sql id="columnsAll">
 		original_file_name,
 		stored_file_name,
@@ -31,6 +38,23 @@
         VALUES
         (
             <include refid="valuesAll"/>
+        )	
+	</insert>
+
+	<insert id="insertFileProperty" parameterType="ThxFileProperty">
+        INSERT INTO thx_file_property
+        (
+            file_id,
+            property_key,
+            property_value,
+            entry_date
+        )
+        VALUES
+        (
+        	#{fileId},
+        	#{propertyKey},
+        	#{propertyValue},
+        	UTC_TIMESTAMP()
         )	
 	</insert>
 	
