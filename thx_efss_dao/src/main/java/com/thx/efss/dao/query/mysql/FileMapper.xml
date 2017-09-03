@@ -1,0 +1,237 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+    
+<mapper namespace="com.fasoo.futv20.dao.mapper.main.usage.FutLogMapper">
+	<resultMap type="FutLog" id="FutLogMap">
+		<result property="logId" column="log_id"/>
+		<result property="userId" column="user_id"/>
+		<result property="contentId" column="content_id"/>
+		<result property="domainCode" column="domain_code"/>
+		<result property="product" column="product"/>
+		<result property="logType" column="log_type"/>
+		<result property="licenseStatus" column="license_status"/>
+		<result property="userCode" column="user_code"/>
+		<result property="positionCode" column="position_code"/>
+		<result property="positionName" column="position_name"/>
+		<result property="ownerCode" column="owner_code"/>
+		<result property="ownerName" column="owner_name"/>
+		<result property="ownerDeptCode" column="owner_dept_code"/>
+		<result property="ownerDeptName" column="owner_dept_name"/>
+		<result property="contentCode" column="content_code"/>
+		<result property="purpose" column="purpose"/>
+		<result property="offerCode" column="offer_code"/>
+		<result property="offerDomainCode" column="offer_domain_code"/>
+		<result property="offerDomainName" column="offer_domain_name"/>
+		<result property="latitude" column="latitude"/>
+		<result property="longitude" column="longitude"/>
+		<result property="ip" column="ip"/>
+		<result property="macAddress" column="mac_address"/>
+		<result property="machineCode" column="machine_code"/>
+		<result property="userAccount" column="user_account"/>
+		<result property="userWorkgroup" column="user_workgroup"/>
+		<result property="licenseStartDate" column="license_start_date"/>
+		<result property="licenseEndDate" column="license_end_date"/>
+		<result property="usageResult" column="usage_result"/>
+		<result property="logDate" column="log_date"/>
+		<result property="entryDate" column="entry_date"/>
+	</resultMap>
+
+    <sql id="columnsAll">
+		log_id,
+		user_id,
+		content_id,
+		domain_code,
+		product,
+		log_type,
+		license_status,
+		user_code,
+		position_code,
+		position_name,
+		owner_code,
+		owner_name,
+		owner_dept_code,
+		owner_dept_name,
+		content_code,
+		purpose,
+		offer_code,
+		offer_domain_code,
+		offer_domain_name,
+		latitude,
+		longitude,
+		ip,
+		mac_address,
+		machine_code,
+		user_account,
+		user_workgroup,
+		license_start_date,
+		license_end_date,
+		usage_result,
+		log_date,
+		entry_date
+    </sql>
+    
+    <sql id="valuesAll">
+		#{logId},
+		#{userId},
+		#{contentId},
+		#{domainCode},
+		#{product},
+		#{logType},
+		#{licenseStatus},
+		#{userCode},
+		#{positionCode},
+		#{positionName},
+		#{ownerCode},
+		#{ownerName},
+		#{ownerDeptCode},
+		#{ownerDeptName},
+		#{contentCode},
+		#{purpose},
+		#{offerCode},
+		#{offerDomainCode},
+		#{offerDomainName},
+		#{latitude},
+		#{longitude},
+		#{ip},
+		#{macAddress},
+		#{machineCode},
+		#{userAccount},
+		#{userWorkgroup},
+		#{licenseStartDate},
+		#{licenseEndDate},
+		#{usageResult},
+		#{logDate},
+    	getutcdate()
+    </sql>
+	
+	<insert id="insertFutLog" parameterType="FutLog">
+        INSERT INTO fut_log
+        (
+            <include refid="columnsAll"/>
+        )
+        VALUES
+        (
+            <include refid="valuesAll"/>
+        )	
+	</insert>
+	<select id="futLogs" parameterType="hashmap" resultType="hashmap">	  		
+		SELECT TOP ${limit}
+			*
+		FROM (
+			SELECT 
+				L.log_id,
+				L.user_id, 
+				L.user_code, 
+				U.user_name, 
+				U.user_dept_name, 
+				log_date,
+				ip,
+				content_name,
+				content_product_type,
+				category_name,
+				purpose,
+				ROW_NUMBER() OVER (ORDER BY log_id desc) AS rownumber
+			FROM
+				fut_log AS L,
+				fut_user AS U,
+				fut_content AS C
+			WHERE
+				log_id &lt; 'z'
+				AND log_date BETWEEN #{startTime} AND #{endTime}
+				AND L.domain_code IN
+				<foreach item="item" index="index" collection="domainCodes"
+			             open="(" separator="," close=")">
+			        #{item}
+			    </foreach>
+			    
+			    <if test="_parameter.containsKey('purposes')">
+					AND L.purpose IN
+					<foreach item="item" index="index" collection="purposes"
+				             open="(" separator="," close=")">
+				        #{item}
+				    </foreach>
+				</if>
+				AND L.user_id = U.user_id
+				AND L.content_id = C.content_id
+				<if test="_parameter.containsKey('userId')">AND U.user_code = #{userId}</if>
+				<if test="_parameter.containsKey('username')">AND U.user_name = #{username}</if>
+				<if test="_parameter.containsKey('deptname')">AND U.user_dept_name = #{deptname}</if>
+				<if test="_parameter.containsKey('category')">AND category_code = #{category}</if>				
+			) AS K
+		WHERE 
+			K.rownumber > ${offset}
+		ORDER BY
+			K.log_id DESC
+	</select>
+	
+	<select id="autocomplete" parameterType="hashmap" resultType="String">
+		SELECT
+			<if test="_parameter.containsKey('user_code')">user_code</if> 
+			<if test="_parameter.containsKey('user_name')">user_name</if> 
+			<if test="_parameter.containsKey('user_dept_name')">user_dept_name</if> 
+		FROM
+			fut_user WITH(NOLOCK)
+		WHERE
+			<if test="_parameter.containsKey('user_code')">user_code like #{keyword} + '%'</if>
+			<if test="_parameter.containsKey('user_name')">user_name like #{keyword} + '%'</if>
+			<if test="_parameter.containsKey('user_dept_name')">user_dept_name like #{keyword} + '%'</if>
+	</select>
+	
+	
+	<select id="categories" resultType="hashmap">
+		SELECT
+			category_code,
+			category_name
+		FROM
+			fut_content WITH(NOLOCK)
+		GROUP BY
+			category_code,
+			category_name
+	</select>
+	
+	<select id="infoCount" parameterType="String" resultType="Long">
+		SELECT
+			info_count
+		FROM
+			fut_context_searched_log_detail WITH(NOLOCK)
+		WHERE
+			log_id = #{value}
+	</select>
+	
+	<insert id="logDetail" parameterType="hashmap">
+        INSERT INTO fut_context_searched_log_detail
+        (
+            log_id,
+            uuid,
+            pattern_uuid,
+            pattern_name,
+            info_count
+        )
+        VALUES
+        (
+            #{logId},
+			#{uuid},
+			#{patternUuid},
+			#{patternName},
+			#{infoCount}
+        )	
+	</insert>
+	
+	<insert id="chunkedContent" parameterType="hashmap">
+        INSERT INTO fut_chunked_content
+        (
+            detail_uuid,
+            order_no,
+            chunked_content
+        )
+        VALUES
+        (
+            #{detailUuid},
+			#{orderNo},
+			#{chunkedContent}
+        )	
+	</insert>
+	
+</mapper>    
