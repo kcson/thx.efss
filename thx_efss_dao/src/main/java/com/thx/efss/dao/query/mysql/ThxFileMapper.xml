@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+    
+<mapper namespace="com.thx.efss.dao.mapper.ThxFileMapper">
+	<resultMap type="ThxFile" id="ThxFileMap">
+		<id property="id" column="id"/>
+		<result property="originalFileName" column="original_file_name"/>
+		<result property="storedFileName" column="stored_file_name"/>
+		<result property="entryDate" column="entry_date"/>
+	</resultMap>
+
+    <sql id="columnsAll">
+		original_file_name,
+		stored_file_name,
+		entry_date
+    </sql>
+    
+    <sql id="valuesAll">
+		#{originalFileName},
+		#{storedFileName},
+		 UTC_TIMESTAMP()
+    </sql>
+	
+	<insert id="insertFile" parameterType="ThxFile" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO thx_file
+        (
+            <include refid="columnsAll"/>
+        )
+        VALUES
+        (
+            <include refid="valuesAll"/>
+        )	
+	</insert>
+	
+	<select id="selectFileList" parameterType="hashmap" resultMap="ThxFileMap">	  		
+		SELECT 
+			id,
+			<include refid="columnsAll"/>
+		FROM
+			thx_file	
+	</select>
+</mapper>    
