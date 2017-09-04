@@ -13,8 +13,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
-import com.amazonaws.auth.AWSStaticCredentialsProvider;
 import com.amazonaws.auth.BasicAWSCredentials;
+import com.amazonaws.auth.profile.ProfileCredentialsProvider;
 import com.amazonaws.regions.Regions;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
@@ -26,8 +26,6 @@ import com.thx.efss.dao.mapper.ThxFileMapper;
 
 @Service
 public class FileServiceImpl implements FileService {
-	private static String AWS_ACCESS_KEY_ID = "AKIAJJYNBU25KMTWIFFQ";
-	private static String AWS_SECRET_ACCESS_KEY = "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";
 
 	@Autowired
 	ThxFileMapper thxFileMapper;
@@ -40,8 +38,8 @@ public class FileServiceImpl implements FileService {
 		System.out.println(originFileName);
 
 		// aws s3에 파일 저장
-		BasicAWSCredentials creds = new BasicAWSCredentials(AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY);
-		AmazonS3 s3Client = AmazonS3ClientBuilder.standard().withRegion(Regions.AP_NORTHEAST_2).withCredentials(new AWSStaticCredentialsProvider(creds))
+		//BasicAWSCredentials creds = new BasicAWSCredentials(AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY);
+		AmazonS3 s3Client = AmazonS3ClientBuilder.standard().withRegion(Regions.AP_NORTHEAST_2).withCredentials(new ProfileCredentialsProvider())
 				.build();
 
 		String contentKey = getUuid();
