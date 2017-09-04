@@ -13,12 +13,21 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.amazonaws.auth.AWSStaticCredentialsProvider;
+import com.amazonaws.auth.BasicAWSCredentials;
+import com.amazonaws.regions.Regions;
+import com.amazonaws.services.s3.AmazonS3;
+import com.amazonaws.services.s3.AmazonS3ClientBuilder;
+import com.amazonaws.services.s3.model.ObjectMetadata;
+import com.amazonaws.services.s3.model.PutObjectRequest;
 import com.thx.efss.dao.bean.ThxFile;
 import com.thx.efss.dao.bean.ThxFileProperty;
 import com.thx.efss.dao.mapper.ThxFileMapper;
 
 @Service
 public class FileServiceImpl implements FileService {
+	private static String AWS_ACCESS_KEY_ID = "AKIAJJYNBU25KMTWIFFQ";
+	private static String AWS_SECRET_ACCESS_KEY = "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";
 
 	@Autowired
 	ThxFileMapper thxFileMapper;
@@ -30,9 +39,20 @@ public class FileServiceImpl implements FileService {
 		String originFileName = new String(uploadFile.getOriginalFilename().getBytes("8859_1"), "UTF-8");
 		System.out.println(originFileName);
 
+		// aws s3에 파일 저장
+		BasicAWSCredentials creds = new BasicAWSCredentials(AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY);
+		AmazonS3 s3Client = AmazonS3ClientBuilder.standard().withRegion(Regions.AP_NORTHEAST_2).withCredentials(new AWSStaticCredentialsProvider(creds))
+				.build();
+
+		String contentKey = getUuid();
+		ObjectMetadata metadata = new ObjectMetadata();
+		metadata.setContentLength(uploadFile.getSize());
+		s3Client.putObject(new PutObjectRequest("thxcloud.com", contentKey, uploadFile.getInputStream(), metadata));
+
+		// s3에 저장 성공하면 DB에 파일 관련 정보 저장
 		ThxFile thxFile = new ThxFile();
 		thxFile.setOriginalFileName(originFileName);
-		thxFile.setStoredFileName(getUuid());
+		thxFile.setStoredFileName(contentKey);
 
 		thxFileMapper.insertFile(thxFile);
 
