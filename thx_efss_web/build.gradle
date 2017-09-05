@@ -67,6 +67,7 @@ configure(allprojects) {
 project(':thx_efss_controller') {
 	dependencies {
         compile project(':thx_efss_service')
+        compile project(':thx_efss_dao')
         compile project(':thx_efss_common')
 	}
 }

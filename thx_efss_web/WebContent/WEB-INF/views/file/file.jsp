@@ -1,5 +1,5 @@
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
-<form class="form-inline" enctype="multipart/form-data" action="/fileUpload" name="fileUpload" method="post">
+<form class="form-inline" enctype="multipart/form-data" action="/file" name="fileUpload" method="post">
 	<div class="form-group">
 		<input type="file" name="file" class="form-control">
 	</div>
@@ -32,3 +32,9 @@
       </tr>
     </tbody>
 </table>
+
+<script>
+	$(document).ready(function(){
+		
+	});
+</script>
