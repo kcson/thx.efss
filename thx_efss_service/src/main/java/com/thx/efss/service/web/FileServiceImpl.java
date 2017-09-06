@@ -1,8 +1,13 @@
 package com.thx.efss.service.web;
 
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.net.URLEncoder;
 import java.util.HashMap;
 import java.util.List;
 import java.util.UUID;
+
+import javax.servlet.http.HttpServletResponse;
 
 import org.docx4j.XmlUtils;
 import org.docx4j.docProps.custom.Properties;
@@ -19,8 +24,10 @@ import com.amazonaws.auth.profile.ProfileCredentialsProvider;
 import com.amazonaws.regions.Regions;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
+import com.amazonaws.services.s3.model.GetObjectRequest;
 import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.model.PutObjectRequest;
+import com.amazonaws.services.s3.model.S3Object;
 import com.thx.efss.dao.bean.ThxFile;
 import com.thx.efss.dao.bean.ThxFileProperty;
 import com.thx.efss.dao.mapper.ThxFileMapper;
@@ -92,5 +99,45 @@ public class FileServiceImpl implements FileService {
 	public List<ThxFile> getFileList() throws Exception {
 		HashMap<String, Object> paramMap = new HashMap<>();
 		return thxFileMapper.selectFileList(paramMap);
+	}
+
+	@Override
+	public void downloadFile(long fileId, HttpServletResponse response) throws Exception {
+		HashMap<String, Object> paramMap = new HashMap<>();
+		paramMap.put("id", fileId);
+		
+		OutputStream out = response.getOutputStream();
+
+		List<ThxFile> fileList = thxFileMapper.selectFileList(paramMap);
+		if (fileList != null && fileList.size() > 0) {
+			ThxFile thxFile = fileList.get(0);
+
+			AmazonS3 s3Client = AmazonS3ClientBuilder.standard().withRegion(Regions.AP_NORTHEAST_2)
+					.withCredentials(new ProfileCredentialsProvider()).build();
+
+			S3Object object = s3Client.getObject(new GetObjectRequest("thxcloud.com", thxFile.getStoredFileName()));
+			ObjectMetadata metaData = object.getObjectMetadata();
+			InputStream objectData = object.getObjectContent();
+
+			response.setContentType(metaData.getContentType());
+			response.setContentLengthLong(metaData.getContentLength());
+			response.setHeader("Content-Disposition",
+					"attachment; fileName=\"" + URLEncoder.encode(thxFile.getOriginalFileName(), "UTF-8") + "\";");
+
+			byte[] buffer = new byte[1024];
+			int offset = 0;
+			int readBytes = 0;
+			while ((readBytes = objectData.read(buffer, 0, 1024)) != -1) {
+				offset += readBytes;
+				out.write(buffer, 0, readBytes);
+				out.flush();
+			}
+			
+		}
+		
+		if(out != null)
+		{
+			out.close();
+		}
 	}
 }

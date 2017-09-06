@@ -41,7 +41,15 @@ $(document).ready(function(){
 });
 
 function downLoadFile(fileId) {
-	alert(fileId);
+	$.ajax({
+		url: '/file/'+fileId,
+		type: 'get',
+		success: function(data){
+		},
+		error: function(request, status, error) {
+			alert(status + ":" + error);
+		}
+	});
 }
 
 </script>

@@ -63,6 +63,11 @@
 			id,
 			<include refid="columnsAll"/>
 		FROM
-			thx_file	
+			thx_file
+		<where>
+			<if test="id != null">
+			id = #{id}
+			</if>
+		</where>	
 	</select>
 </mapper>    

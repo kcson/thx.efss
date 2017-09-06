@@ -4,10 +4,13 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
+import javax.servlet.http.HttpServletResponse;
+
 import org.docx4j.openpackaging.exceptions.Docx4JException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -40,7 +43,7 @@ public class FileController {
 	}
 
 	@RequestMapping(value = "/file/list", method = RequestMethod.GET, produces = MediaType.APPLICATION_JSON_UTF8_VALUE)
- 	public @ResponseBody List<ThxFile> fileList() {
+	public @ResponseBody List<ThxFile> fileList() {
 		List<ThxFile> fileList = new ArrayList<>();
 		try {
 			fileList = fileService.getFileList();
@@ -48,6 +51,15 @@ public class FileController {
 			e.printStackTrace();
 		}
 		return fileList;
+	}
+
+	@RequestMapping(value = "/file/{fileId}", method = RequestMethod.GET)
+	public void fileDownload(@PathVariable long fileId, HttpServletResponse response) {
+		try {
+			fileService.downloadFile(fileId, response);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
 	}
 
 }
