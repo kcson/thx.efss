@@ -1,5 +1,6 @@
 package com.thx.efss.service.web;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.UUID;
 
@@ -14,7 +15,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
-import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.auth.profile.ProfileCredentialsProvider;
 import com.amazonaws.regions.Regions;
 import com.amazonaws.services.s3.AmazonS3;
@@ -39,9 +39,10 @@ public class FileServiceImpl implements FileService {
 		System.out.println(originFileName);
 
 		// aws s3에 파일 저장
-		//BasicAWSCredentials creds = new BasicAWSCredentials(AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY);
-		AmazonS3 s3Client = AmazonS3ClientBuilder.standard().withRegion(Regions.AP_NORTHEAST_2).withCredentials(new ProfileCredentialsProvider())
-				.build();
+		// BasicAWSCredentials creds = new BasicAWSCredentials(AWS_ACCESS_KEY_ID,
+		// AWS_SECRET_ACCESS_KEY);
+		AmazonS3 s3Client = AmazonS3ClientBuilder.standard().withRegion(Regions.AP_NORTHEAST_2)
+				.withCredentials(new ProfileCredentialsProvider()).build();
 
 		String contentKey = getUuid();
 		ObjectMetadata metadata = new ObjectMetadata();
@@ -89,7 +90,7 @@ public class FileServiceImpl implements FileService {
 
 	@Override
 	public List<ThxFile> getFileList() throws Exception {
-		// TODO Auto-generated method stub
-		return null;
+		HashMap<String, Object> paramMap = new HashMap<>();
+		return thxFileMapper.selectFileList(paramMap);
 	}
 }

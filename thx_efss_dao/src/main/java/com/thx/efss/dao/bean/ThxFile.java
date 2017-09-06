@@ -1,6 +1,9 @@
 package com.thx.efss.dao.bean;
 
 import java.util.Date;
+import java.util.TimeZone;
+
+import org.apache.commons.lang3.time.DateFormatUtils;
 
 public class ThxFile {
 	private long id;
@@ -41,8 +44,9 @@ public class ThxFile {
 		this.updateDate = updateDate;
 	}
 
-	public Date getEntryDate() {
-		return entryDate;
+	public String getEntryDate() {
+		return DateFormatUtils.format(this.entryDate, DateFormatUtils.ISO_DATETIME_FORMAT.getPattern(),TimeZone.getDefault());
+		//return entryDate;
 	}
 
 	public void setEntryDate(Date entryDate) {

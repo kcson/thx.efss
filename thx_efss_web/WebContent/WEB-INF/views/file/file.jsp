@@ -9,32 +9,39 @@
 <table class="table table-striped">
     <thead>
       <tr>
-        <th>Firstname</th>
-        <th>Lastname</th>
-        <th>Email</th>
+        <th>파일 이름</th>
+        <th>저장 이름</th>
+        <th>생성일</th>
       </tr>
     </thead>
     <tbody>
-      <tr>
-        <td>John</td>
-        <td>Doe</td>
-        <td>john@example.com</td>
-      </tr>
-      <tr>
-        <td>Mary</td>
-        <td>Moe</td>
-        <td>mary@example.com</td>
-      </tr>
-      <tr>
-        <td>July</td>
-        <td>Dooley</td>
-        <td>july@example.com</td>
-      </tr>
     </tbody>
 </table>
 
-<script>
-	$(document).ready(function(){
-		
+<script type="text/javascript">
+
+$(document).ready(function(){
+	$.ajax({
+		url: '/file/list',
+		type: 'get',
+		dataType : 'json',
+		success: function(data){
+			$tbody = $('tbody');
+			data.forEach(function(file){
+				$tr = $('<tr><td style="cursor:pointer;" onclick="downLoadFile(\''+file.id+'\')">'+file.originalFileName+'</td><td>'+file.storedFileName+'</td><td>'+file.entryDate+'</td></tr>');
+				$tr.appendTo($tbody);
+				
+			});
+			
+		},
+		error: function(request, status, error) {
+			alert(status + ":" + error);
+		}
 	});
+});
+
+function downLoadFile(fileId) {
+	alert(fileId);
+}
+
 </script>

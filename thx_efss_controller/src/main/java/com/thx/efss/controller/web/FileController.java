@@ -1,6 +1,7 @@
 package com.thx.efss.controller.web;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.docx4j.openpackaging.exceptions.Docx4JException;
@@ -10,6 +11,7 @@ import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.thx.efss.dao.bean.ThxFile;
@@ -37,14 +39,15 @@ public class FileController {
 		return "fileList";
 	}
 
-	@RequestMapping(value = "/file/list", method = RequestMethod.GET, produces=MediaType.APPLICATION_JSON_UTF8_VALUE) // method = RequestMethod.GET
-	public List<ThxFile> fileList() {
+	@RequestMapping(value = "/file/list", method = RequestMethod.GET, produces = MediaType.APPLICATION_JSON_UTF8_VALUE)
+ 	public @ResponseBody List<ThxFile> fileList() {
+		List<ThxFile> fileList = new ArrayList<>();
 		try {
-			return fileService.getFileList();
+			fileList = fileService.getFileList();
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
-		return null;
+		return fileList;
 	}
 
 }
