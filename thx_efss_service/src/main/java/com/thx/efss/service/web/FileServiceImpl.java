@@ -7,6 +7,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.UUID;
 
+import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import org.docx4j.XmlUtils;
@@ -103,10 +104,10 @@ public class FileServiceImpl implements FileService {
 	}
 
 	@Override
-	public void downloadFile(long fileId, HttpServletResponse response) throws Exception {
+	public void downloadFile(long fileId, HttpServletRequest request, HttpServletResponse response) throws Exception {
 		HashMap<String, Object> paramMap = new HashMap<>();
 		paramMap.put("id", fileId);
-		
+
 		OutputStream out = response.getOutputStream();
 
 		List<ThxFile> fileList = thxFileMapper.selectFileList(paramMap);
@@ -122,8 +123,8 @@ public class FileServiceImpl implements FileService {
 
 			response.setContentType(metaData.getContentType());
 			response.setContentLengthLong(metaData.getContentLength());
-			response.setHeader("Content-Disposition",
-					"attachment; fileName=\"" + URLEncoder.encode(thxFile.getOriginalFileName(), "UTF-8") + "\";");
+			setFileName(request, response, thxFile.getOriginalFileName());
+			response.setHeader("Content-Transfer-Encoding", "binary");
 
 			byte[] buffer = new byte[1024];
 			int readBytes = 0;
@@ -132,10 +133,30 @@ public class FileServiceImpl implements FileService {
 				out.flush();
 			}
 		}
-		
-		if(out != null)
-		{
+
+		if (out != null) {
 			out.close();
+		}
+	}
+
+	private void setFileName(HttpServletRequest request, HttpServletResponse response, String fileName)
+			throws Exception {
+		String header = request.getHeader("User-Agent");
+		if (header.contains("MSIE") || header.contains("Trident")) { // IE 11버전부터 Trident로 변경되었기때문에 추가해준다.
+			fileName = URLEncoder.encode(fileName, "UTF-8").replaceAll("\\+", "%20");
+			response.setHeader("Content-Disposition", "attachment;filename=" + fileName + ";");
+		} else if (header.contains("Chrome")) {
+			fileName = new String(fileName.getBytes("UTF-8"), "ISO-8859-1");
+			response.setHeader("Content-Disposition", "attachment; filename=\"" + fileName + "\"");
+		} else if (header.contains("Opera")) {
+			fileName = new String(fileName.getBytes("UTF-8"), "ISO-8859-1");
+			response.setHeader("Content-Disposition", "attachment; filename=\"" + fileName + "\"");
+		} else if (header.contains("Firefox")) {
+			fileName = new String(fileName.getBytes("UTF-8"), "ISO-8859-1");
+			response.setHeader("Content-Disposition", "attachment; filename=\"" + fileName + "\"");
+		}else if(header.contains("Safari")) {
+			fileName =  new String(fileName.getBytes("UTF-8"), "8859_1");
+			response.setHeader("Content-Disposition", "attachment; filename=\"" + fileName + "\"");
 		}
 	}
 
@@ -151,17 +172,17 @@ public class FileServiceImpl implements FileService {
 		paramMap.put("id", fileId);
 
 		List<ThxFile> fileList = thxFileMapper.selectFileList(paramMap);
-		
+
 		if (fileList != null && fileList.size() > 0) {
 			ThxFile thxFile = fileList.get(0);
-			
+
 			thxFileMapper.deleteFileProperty(fileId);
 			thxFileMapper.deleteFile(fileId);
-			
+
 			AmazonS3 s3Client = AmazonS3ClientBuilder.standard().withRegion(Regions.AP_NORTHEAST_2)
 					.withCredentials(new ProfileCredentialsProvider()).build();
-			s3Client.deleteObject(new DeleteObjectRequest("thxcloud.com",thxFile.getStoredFileName()));
+			s3Client.deleteObject(new DeleteObjectRequest("thxcloud.com", thxFile.getStoredFileName()));
 		}
-		
+
 	}
 }

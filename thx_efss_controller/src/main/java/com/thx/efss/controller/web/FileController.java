@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
+import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import org.docx4j.openpackaging.exceptions.Docx4JException;
@@ -55,9 +56,9 @@ public class FileController {
 	}
 
 	@RequestMapping(value = "/file/{fileId}", method = RequestMethod.GET)
-	public void fileDownload(@PathVariable long fileId, HttpServletResponse response) {
+	public void fileDownload(@PathVariable long fileId, HttpServletRequest request, HttpServletResponse response) {
 		try {
-			fileService.downloadFile(fileId, response);
+			fileService.downloadFile(fileId, request, response);
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
