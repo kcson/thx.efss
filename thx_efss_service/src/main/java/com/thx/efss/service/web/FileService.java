@@ -7,11 +7,16 @@ import javax.servlet.http.HttpServletResponse;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.thx.efss.dao.bean.ThxFile;
+import com.thx.efss.dao.bean.ThxFileProperty;
 
 public interface FileService {
 	public void saveFile(MultipartFile uploadFile) throws Exception;
 
 	public void downloadFile(long fileId, HttpServletResponse response) throws Exception;
 
+	public void deleteFile(long fileId) throws Exception;
+
 	public List<ThxFile> getFileList() throws Exception;
+
+	public List<ThxFileProperty> getFileProperty(long fileId) throws Exception;
 }

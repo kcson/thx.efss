@@ -24,6 +24,7 @@ import com.amazonaws.auth.profile.ProfileCredentialsProvider;
 import com.amazonaws.regions.Regions;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
+import com.amazonaws.services.s3.model.DeleteObjectRequest;
 import com.amazonaws.services.s3.model.GetObjectRequest;
 import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.model.PutObjectRequest;
@@ -125,19 +126,42 @@ public class FileServiceImpl implements FileService {
 					"attachment; fileName=\"" + URLEncoder.encode(thxFile.getOriginalFileName(), "UTF-8") + "\";");
 
 			byte[] buffer = new byte[1024];
-			int offset = 0;
 			int readBytes = 0;
 			while ((readBytes = objectData.read(buffer, 0, 1024)) != -1) {
-				offset += readBytes;
 				out.write(buffer, 0, readBytes);
 				out.flush();
 			}
-			
 		}
 		
 		if(out != null)
 		{
 			out.close();
 		}
+	}
+
+	@Override
+	public List<ThxFileProperty> getFileProperty(long fileId) throws Exception {
+		return thxFileMapper.selectFileProperty(fileId);
+	}
+
+	@Override
+	@Transactional
+	public void deleteFile(long fileId) throws Exception {
+		HashMap<String, Object> paramMap = new HashMap<>();
+		paramMap.put("id", fileId);
+
+		List<ThxFile> fileList = thxFileMapper.selectFileList(paramMap);
+		
+		if (fileList != null && fileList.size() > 0) {
+			ThxFile thxFile = fileList.get(0);
+			
+			thxFileMapper.deleteFileProperty(fileId);
+			thxFileMapper.deleteFile(fileId);
+			
+			AmazonS3 s3Client = AmazonS3ClientBuilder.standard().withRegion(Regions.AP_NORTHEAST_2)
+					.withCredentials(new ProfileCredentialsProvider()).build();
+			s3Client.deleteObject(new DeleteObjectRequest("thxcloud.com",thxFile.getStoredFileName()));
+		}
+		
 	}
 }

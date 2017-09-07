@@ -13,8 +13,8 @@
 
 	<resultMap type="ThxFileProperty" id="ThxFilePropertyMap">
 		<result property="fileId" column="file_id"/>
-		<result property="originalFileName" column="property_key"/>
-		<result property="storedFileName" column="property_value"/>
+		<result property="propertyKey" column="property_key"/>
+		<result property="propertyValue" column="property_value"/>
 		<result property="entryDate" column="entry_date"/>
 	</resultMap>
 
@@ -70,4 +70,32 @@
 			</if>
 		</where>	
 	</select>
+	
+	<select id="selectFileProperty" resultMap="ThxFilePropertyMap">	  		
+		SELECT 
+			file_id,
+			property_key,
+			property_value,
+			entry_date
+		FROM
+			thx_file_property
+		<where>
+			file_id = #{fileId}
+		</where>	
+	</select>
+	
+	<delete id="deleteFile">
+		DELETE FROM 
+			thx_file
+		WHERE
+			id = #{fileId}	
+	</delete>
+
+	<delete id="deleteFileProperty">
+		DELETE FROM 
+			thx_file_property
+		WHERE
+			file_id = #{fileId}
+	</delete>
+	
 </mapper>    

@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.thx.efss.dao.bean.ThxFile;
+import com.thx.efss.dao.bean.ThxFileProperty;
 import com.thx.efss.service.web.FileService;
 
 @Controller
@@ -62,4 +63,25 @@ public class FileController {
 		}
 	}
 
+	@RequestMapping(value = "/fileproperty/{fileId}", method = RequestMethod.GET, produces = MediaType.APPLICATION_JSON_UTF8_VALUE)
+	public @ResponseBody List<ThxFileProperty> getFileProperty(@PathVariable long fileId) {
+		List<ThxFileProperty> fileList = new ArrayList<>();
+
+		try {
+			fileList = fileService.getFileProperty(fileId);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		return fileList;
+	}
+
+	@RequestMapping(value = "/file/{fileId}", method = RequestMethod.DELETE)
+	public @ResponseBody void deleteFile(@PathVariable long fileId) {
+		try {
+			fileService.deleteFile(fileId);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
 }
