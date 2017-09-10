@@ -56,10 +56,14 @@ configure(allprojects) {
         
         compile group: 'mysql', name: 'mysql-connector-java', version: '6.0.6'
         
-        compile group: 'org.docx4j', name: 'docx4j', version: '3.3.5'
+        //compile group: 'org.docx4j', name: 'docx4j', version: '3.3.5'
         
         //compile group: 'com.amazonaws', name: 'aws-java-sdk', version: '1.11.188'
         compile group: 'com.amazonaws', name: 'aws-java-sdk-s3', version: '1.11.188'
+        compile group: 'org.apache.poi', name: 'poi', version: '3.16'
+        compile group: 'org.apache.poi', name: 'poi-ooxml', version: '3.16'
+        compile group: 'org.apache.tika', name: 'tika-parsers', version: '1.16'
+        
 
     }
 }

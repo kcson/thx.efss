@@ -7,7 +7,6 @@ import java.util.List;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import org.docx4j.openpackaging.exceptions.Docx4JException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Controller;
@@ -35,8 +34,6 @@ public class FileController {
 				fileService.saveFile(uploadFile);
 			}
 		} catch (IOException e) {
-			e.printStackTrace();
-		} catch (Docx4JException e) {
 			e.printStackTrace();
 		} catch (Exception e) {
 			e.printStackTrace();
