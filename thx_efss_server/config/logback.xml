@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<configuration scan="true" scanPeriod="30 seconds">
+
+	<property name="LOG_TIMEZONE" value="asia/seoul" />
+
+	<appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+	      <pattern>%d{yyyy-MM-dd HH:mm:ss, ${LOG_TIMEZONE}} [%-4level] %-8.8thread %logger{128} [%M] %msg%n</pattern>
+	    </encoder>	    
+  	</appender>
+
+	<appender name="FILE_ROLL_DEBUG" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <filter class="ch.qos.logback.classic.filter.LevelFilter">
+            <level>DEBUG</level>
+            <onMatch>ACCEPT</onMatch>
+            <onMismatch>DENY</onMismatch>
+        </filter>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <FileNamePattern>${thx.home}/logs/thx_debug_%d{yyyyMMdd}.log</FileNamePattern>
+            <maxHistory>30</maxHistory><!-- keep 30 days' worth of history -->
+        </rollingPolicy>
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss, ${LOG_TIMEZONE}} [%-4level] %-8.8thread %logger{128} [%M] %msg%n</pattern>
+        </encoder>        
+    </appender>
+    
+    <appender name="FILE_ROLL_INFO" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <filter class="ch.qos.logback.classic.filter.LevelFilter">
+            <level>INFO</level>
+            <onMatch>ACCEPT</onMatch>
+            <onMismatch>DENY</onMismatch>
+        </filter>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+			<FileNamePattern>${thx.home}/logs/thx_info_%d{yyyyMMdd}.log</FileNamePattern>
+			<maxHistory>30</maxHistory><!-- keep 30 days' worth of history -->
+		</rollingPolicy>
+		<encoder>
+			<pattern>%d{yyyy-MM-dd HH:mm:ss, ${LOG_TIMEZONE}} [%-4level] %-8.8thread %logger{128} [%M] %msg%n</pattern>
+		</encoder>
+	</appender>
+
+	<appender name="FILE_ROLL_ERROR" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <filter class="ch.qos.logback.classic.filter.LevelFilter">
+            <level>ERROR</level>
+            <onMatch>ACCEPT</onMatch>
+            <onMismatch>DENY</onMismatch>
+        </filter>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+			<FileNamePattern>${thx.home}/logs/thx_error_%d{yyyyMMdd}.log</FileNamePattern>
+			<maxHistory>30</maxHistory><!-- keep 30 days' worth of history -->
+		</rollingPolicy>
+		<encoder>
+			<pattern>%d{yyyy-MM-dd HH:mm:ss, ${LOG_TIMEZONE}} [%-4level] %-8.8thread %logger{128} [%M] %msg%n</pattern>
+		</encoder>
+	</appender>
+	
+	<root>
+		<level value="INFO" />
+		<appender-ref ref="FILE_ROLL_INFO" />
+	</root>
+	
+    <logger name="java.sql" level="INFO">
+        <appender-ref ref="FILE_ROLL_DEBUG" />
+        <appender-ref ref="FILE_ROLL_ERROR" />
+    </logger>
+    
+    <logger name="com.thx.efss" level="INFO">
+    	<appender-ref ref="STDOUT" />
+	    <appender-ref ref="FILE_ROLL_DEBUG" />
+	    <appender-ref ref="FILE_ROLL_ERROR" />
+    </logger>
+	
+</configuration>

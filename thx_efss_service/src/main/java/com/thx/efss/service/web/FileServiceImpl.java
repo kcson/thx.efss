@@ -1,7 +1,5 @@
 package com.thx.efss.service.web;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.URLEncoder;
@@ -13,17 +11,16 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import org.apache.commons.lang3.StringUtils;
-import org.apache.poi.POIXMLProperties;
-import org.apache.poi.hpsf.SummaryInformation;
-import org.apache.poi.hwpf.HWPFDocument;
-import org.apache.poi.hwpf.model.DocumentProperties;
-import org.apache.poi.xwpf.usermodel.XWPFDocument;
-import org.openxmlformats.schemas.officeDocument.x2006.customProperties.CTProperties;
-import org.openxmlformats.schemas.officeDocument.x2006.customProperties.CTProperty;
+import org.apache.tika.metadata.Metadata;
+import org.apache.tika.parser.AutoDetectParser;
+import org.apache.tika.parser.ParseContext;
+import org.apache.tika.sax.BodyContentHandler;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.multipart.commons.CommonsMultipartResolver;
+import org.xml.sax.ContentHandler;
 
 import com.amazonaws.auth.profile.ProfileCredentialsProvider;
 import com.amazonaws.regions.Regions;
@@ -43,56 +40,25 @@ public class FileServiceImpl implements FileService {
 
 	@Autowired
 	ThxFileMapper thxFileMapper;
+	@Autowired
+	CommonsMultipartResolver commonsMultipartResolver;
 
-	@SuppressWarnings("resource")
 	@Override
 	@Transactional
 	public void saveFile(MultipartFile uploadFile) throws Exception {
-		// byte[] fileBytes = uploadFile.getBytes();
 		String originFileName = new String(uploadFile.getOriginalFilename().getBytes("8859_1"), "UTF-8");
 
-		if (StringUtils.equals(uploadFile.getContentType(), "application/msword")) {
-			HWPFDocument document = new HWPFDocument(uploadFile.getInputStream());
-			DocumentProperties properties = document.getDocProperties();
-			SummaryInformation info =  document.getSummaryInformation();
-			//info.addSection(section);
-			//properties.get
-		}
-		// 사용자 속성 가져오기
-		XWPFDocument document = new XWPFDocument(uploadFile.getInputStream());
-		POIXMLProperties properties = document.getProperties();
-		POIXMLProperties.CustomProperties customProperties = properties.getCustomProperties();
+		// int thresHold =
+		// commonsMultipartResolver.getFileItemFactory().getSizeThreshold();
+		// 파일에서 사용자 속성 가져오기
+		ContentHandler contenthandler = new BodyContentHandler(-1);
+		Metadata mdata = new Metadata();
 
-		CTProperties ctProperties = customProperties.getUnderlyingProperties();
-		List<CTProperty> propList = ctProperties.getPropertyList();
-		for (CTProperty property : propList) {
-			if (StringUtils.equals(property.getName(), "test property")) {
-				property.setLpwstr(property.getName() + " value");
-			}
-		}
+		AutoDetectParser parser = new AutoDetectParser();
+		ParseContext context = new ParseContext();
+		parser.parse(uploadFile.getInputStream(), contenthandler, mdata, context);
+		String contentType = mdata.get(Metadata.CONTENT_TYPE);
 
-		ByteArrayOutputStream out = new ByteArrayOutputStream();
-		document.write(out);
-
-		ByteArrayInputStream in = new ByteArrayInputStream(out.toByteArray());
-
-		/*
-		 * ContentHandler contenthandler = new BodyContentHandler(-1); Metadata mdata =
-		 * new Metadata();
-		 * 
-		 * AutoDetectParser parser = new AutoDetectParser();
-		 * parser.parse(uploadFile.getInputStream(), contenthandler, mdata, new
-		 * ParseContext());
-		 * 
-		 * mdata.add(Metadata.USER_DEFINED_METADATA_NAME_PREFIX+"test property",
-		 * "test value");
-		 * 
-		 * ByteArrayOutputStream out = new ByteArrayOutputStream(); ExternalEmbedder
-		 * embedder = new ExternalEmbedder(); embedder.embed(mdata,
-		 * uploadFile.getInputStream(), out, new ParseContext());
-		 * 
-		 * ByteArrayInputStream in = new ByteArrayInputStream(out.toByteArray());
-		 */
 		// aws s3에 파일 저장
 		// BasicAWSCredentials creds = new BasicAWSCredentials(AWS_ACCESS_KEY_ID,
 		// AWS_SECRET_ACCESS_KEY);
@@ -101,9 +67,9 @@ public class FileServiceImpl implements FileService {
 
 		String contentKey = getUuid();
 		ObjectMetadata metadata = new ObjectMetadata();
-		metadata.setContentLength(out.toByteArray().length);// uploadFile.getSize());
-		metadata.setContentType(uploadFile.getContentType());
-		s3Client.putObject(new PutObjectRequest("thxcloud.com", contentKey, in, metadata));
+		metadata.setContentLength(uploadFile.getSize());
+		metadata.setContentType(contentType);
+		s3Client.putObject(new PutObjectRequest("thxcloud.com", contentKey, uploadFile.getInputStream(), metadata));
 
 		// s3에 저장 성공하면 DB에 파일 관련 정보 저장
 		ThxFile thxFile = new ThxFile();
@@ -111,45 +77,19 @@ public class FileServiceImpl implements FileService {
 		thxFile.setStoredFileName(contentKey);
 
 		thxFileMapper.insertFile(thxFile);
-		/*
-		 * String[] metadataNames = mdata.names(); ThxFileProperty fileProperty = new
-		 * ThxFileProperty(); fileProperty.setFileId(thxFile.getId()); for (String
-		 * propertyName : metadataNames) { if (StringUtils.startsWith(propertyName,
-		 * Metadata.USER_DEFINED_METADATA_NAME_PREFIX)) { fileProperty.setPropertyKey(
-		 * StringUtils.substringAfter(propertyName,
-		 * Metadata.USER_DEFINED_METADATA_NAME_PREFIX));
-		 * fileProperty.setPropertyValue(mdata.get(propertyName));
-		 * thxFileMapper.insertFileProperty(fileProperty); } }
-		 */
+
+		String[] metadataNames = mdata.names();
 		ThxFileProperty fileProperty = new ThxFileProperty();
 		fileProperty.setFileId(thxFile.getId());
-		for (CTProperty property : propList) {
-			fileProperty.setPropertyKey(property.getName());
-			fileProperty.setPropertyValue(property.getLpwstr());
-			thxFileMapper.insertFileProperty(fileProperty);
+		for (String propertyName : metadataNames) {
+			if (StringUtils.startsWith(propertyName, Metadata.USER_DEFINED_METADATA_NAME_PREFIX)) {
+				fileProperty.setPropertyKey(
+						StringUtils.substringAfter(propertyName, Metadata.USER_DEFINED_METADATA_NAME_PREFIX));
+				fileProperty.setPropertyValue(mdata.get(propertyName));
+				thxFileMapper.insertFileProperty(fileProperty);
+			}
 		}
 
-		/*
-		 * ; WordprocessingMLPackage wordMLPackage =
-		 * WordprocessingMLPackage.load(uploadFile.getInputStream());
-		 * 
-		 * DocPropsCustomPart customPart = wordMLPackage.getDocPropsCustomPart(); if
-		 * (customPart != null) { ThxFileProperty fileProperty = new ThxFileProperty();
-		 * fileProperty.setFileId(thxFile.getId());
-		 * 
-		 * Properties properties = customPart.getContents(); for (Property property :
-		 * properties.getProperty()) { if (property.getLpwstr() != null) {
-		 * System.out.println(property.getName() + " = " + property.getLpwstr());
-		 * 
-		 * fileProperty.setPropertyValue(property.getLpwstr()); } else {
-		 * System.out.println(property.getName() + ": \n " +
-		 * XmlUtils.marshaltoString(property, Context.jcDocPropsCustom));
-		 * 
-		 * fileProperty.setPropertyValue(XmlUtils.marshaltoString(property,
-		 * Context.jcDocPropsCustom)); }
-		 * fileProperty.setPropertyKey(property.getName());
-		 * thxFileMapper.insertFileProperty(fileProperty); } }
-		 */
 	}
 
 	// uuid생성

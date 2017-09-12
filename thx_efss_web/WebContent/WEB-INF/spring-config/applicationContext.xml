@@ -26,7 +26,7 @@
 		</mvc:annotation-driven>
 
 		<bean id="filterMultipartResolver" class="org.springframework.web.multipart.commons.CommonsMultipartResolver"> 
-			<property name="maxUploadSize" value="10000000" />
+			<property name="maxUploadSize" value="60000000" />
 			<property name="maxInMemorySize" value="10000000" /> 
 		</bean>		
 		
