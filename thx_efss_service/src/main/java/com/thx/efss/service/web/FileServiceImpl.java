@@ -82,7 +82,7 @@ public class FileServiceImpl implements FileService {
 		ThxFileProperty fileProperty = new ThxFileProperty();
 		fileProperty.setFileId(thxFile.getId());
 		for (String propertyName : metadataNames) {
-			if (StringUtils.startsWith(propertyName, Metadata.USER_DEFINED_METADATA_NAME_PREFIX)) {
+			if (StringUtils.contains(propertyName, Metadata.USER_DEFINED_METADATA_NAME_PREFIX)) {
 				fileProperty.setPropertyKey(
 						StringUtils.substringAfter(propertyName, Metadata.USER_DEFINED_METADATA_NAME_PREFIX));
 				fileProperty.setPropertyValue(mdata.get(propertyName));
