@@ -64,6 +64,7 @@ configure(allprojects) {
         compile group: 'org.apache.poi', name: 'poi-ooxml', version: '3.16'
         compile group: 'org.apache.tika', name: 'tika-parsers', version: '1.16'
         compile group: 'org.apache.poi', name: 'poi-scratchpad', version: '3.16'
+        compile group: 'org.apache.pdfbox', name: 'pdfbox', version: '2.0.7'
         
 
     }
