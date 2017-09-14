@@ -46,7 +46,8 @@
 		</table>
 	</div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+        <button type="button" class="btn btn-default" data-dismiss="modal">취소</button>
+        <button type="button" class="btn btn-default" data-dismiss="modal">확인</button>
       </div>
     </div>
 
@@ -102,8 +103,8 @@ function showInfo(fileId) {
 			$tbody.empty();
 			data.forEach(function(property){
 				$tr = $('<tr></tr>');
-				$tr.append($('<td>'+property.propertyKey+'</td>'));
-				$tr.append($('<td>'+property.propertyValue+'</td>'));
+				$tr.append($('<td><input type="text" value="'+property.propertyKey+'"></td>'));
+				$tr.append($('<td><input type="text" value="'+property.propertyValue+'"></td>'));
 				
 				$tbody.append($tr);
 			});
