@@ -34,11 +34,12 @@
         <h4 class="modal-title">Modal Header</h4>
       </div>
       <div class="modal-body">
-		<table class="table table-striped">
+		<table class="table table-condensed">
     		<thead>
       		<tr>
         		<th>속성 키</th>
         		<th>속성 값</th>
+        		<th></th>
       		</tr>
     		</thead>
     		<tbody id="fileProperty">
@@ -47,7 +48,7 @@
 	</div>
       <div class="modal-footer">
         <button type="button" class="btn btn-default" data-dismiss="modal">취소</button>
-        <button type="button" class="btn btn-default" data-dismiss="modal">확인</button>
+        <button id="propertyConfirrm" type="button" class="btn btn-default" data-dismiss="modal">확인</button>
       </div>
     </div>
 
@@ -58,6 +59,11 @@
 
 $(document).ready(function(){
 	getFileList();
+	
+	#('#propertyConfirm').on('click' function(e){
+		alert('propertyConfirm');
+	});
+	
 });
 
 function getFileList() {
@@ -105,8 +111,14 @@ function showInfo(fileId) {
 				$tr = $('<tr></tr>');
 				$tr.append($('<td><input type="text" value="'+property.propertyKey+'"></td>'));
 				$tr.append($('<td><input type="text" value="'+property.propertyValue+'"></td>'));
+				$tr.append($('<td><span class="glyphicon glyphicon-remove"></span></td>'));
 				
 				$tbody.append($tr);
+			});
+			
+			$('#fileProperty .glyphicon').on('click', function(e) {
+				$tr = $(e.target).parent().parent();
+				$tr.remove();
 			});
 			
 			$('#myModal').modal('show');
