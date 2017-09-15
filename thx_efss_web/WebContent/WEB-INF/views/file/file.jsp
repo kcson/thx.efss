@@ -48,7 +48,7 @@
 	</div>
       <div class="modal-footer">
         <button type="button" class="btn btn-default" data-dismiss="modal">취소</button>
-        <button id="propertyConfirrm" type="button" class="btn btn-default" data-dismiss="modal">확인</button>
+        <button id="propertyConfirm" type="button" class="btn btn-default" data-dismiss="modal">확인</button>
       </div>
     </div>
 
@@ -60,8 +60,14 @@
 $(document).ready(function(){
 	getFileList();
 	
-	#('#propertyConfirm').on('click' function(e){
-		alert('propertyConfirm');
+	$('#propertyConfirm').on('click', function(e){
+		$('#fileProperty tr').each(function(){
+			var $tr = $(this);
+			//alert($tr.html());
+			var $td = $tr.children();
+			alert($td.eq(0).children('input').val());
+			//alert(td.eq(0).html());
+		})
 	});
 	
 });
