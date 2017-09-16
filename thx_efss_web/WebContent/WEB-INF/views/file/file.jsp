@@ -61,13 +61,38 @@ $(document).ready(function(){
 	getFileList();
 	
 	$('#propertyConfirm').on('click', function(e){
+		var token = $("meta[name='_csrf']").attr("content");
+		var header = $("meta[name='_csrf_header']").attr("content");
+		
+		var propertyList = new Array();
+		var fileId = $('#fileProperty').data('fileId');
+
 		$('#fileProperty tr').each(function(){
 			var $tr = $(this);
-			//alert($tr.html());
 			var $td = $tr.children();
-			alert($td.eq(0).children('input').val());
-			//alert(td.eq(0).html());
+			var property = {};
+			property.propertyKey = $td.eq(0).children('input').val();
+			property.propertyValue = $td.eq(1).children('input').val();
+			propertyList.push(property);
 		})
+		
+		$.ajax({
+			url: '/fileproperty/' + fileId,
+			type : 'put',
+			contentType : 'application/json',
+			dataType : 'json',
+			data : JSON.stringify(propertyList),
+			success : function(data) {
+				
+			},
+			beforeSend : function(xhr){
+		    	xhr.setRequestHeader(header, token);
+			},
+			error : function(request, status, error) {
+				alert(status + ":" + error);
+			}
+		})
+		
 	});
 	
 });
@@ -113,6 +138,8 @@ function showInfo(fileId) {
 		success: function(data){
 			$tbody = $('#fileProperty');
 			$tbody.empty();
+			$tbody.data("fileId", fileId);
+			
 			data.forEach(function(property){
 				$tr = $('<tr></tr>');
 				$tr.append($('<td><input type="text" value="'+property.propertyKey+'"></td>'));

@@ -2,6 +2,7 @@ package com.thx.efss.controller.web;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 
 import javax.servlet.http.HttpServletRequest;
@@ -11,6 +12,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -82,4 +84,19 @@ public class FileController {
 			e.printStackTrace();
 		}
 	}
+
+	@RequestMapping(value = "/fileproperty/{fileId}", method = RequestMethod.PUT, consumes = MediaType.APPLICATION_JSON_UTF8_VALUE, produces = MediaType.APPLICATION_JSON_UTF8_VALUE)
+	public @ResponseBody HashMap<String, Object> putFileProperty(@PathVariable long fileId, @RequestBody List<HashMap<String, Object>> properties) {
+		HashMap<String, Object> returnMap = new HashMap<>();
+
+		try {
+			returnMap = fileService.putFileProperty(fileId, properties);
+		} catch (Exception e) {
+			returnMap.put("result", "fail");
+			e.printStackTrace();
+		}
+
+		return returnMap;
+	}
+
 }

@@ -1,8 +1,9 @@
 package com.thx.efss.service.web;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.net.URLEncoder;
 import java.util.HashMap;
 import java.util.List;
 import java.util.UUID;
@@ -11,10 +12,23 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import org.apache.commons.lang3.StringUtils;
+import org.apache.poi.POIDocument;
+import org.apache.poi.POIXMLDocument;
+import org.apache.poi.POIXMLProperties;
+import org.apache.poi.hpsf.CustomProperties;
+import org.apache.poi.hpsf.DocumentSummaryInformation;
+import org.apache.poi.hslf.usermodel.HSLFSlideShowImpl;
+import org.apache.poi.hssf.usermodel.HSSFWorkbook;
+import org.apache.poi.hwpf.HWPFDocument;
+import org.apache.poi.openxml4j.opc.OPCPackage;
+import org.apache.poi.xslf.usermodel.XMLSlideShow;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.apache.poi.xwpf.usermodel.XWPFDocument;
 import org.apache.tika.metadata.Metadata;
 import org.apache.tika.parser.AutoDetectParser;
 import org.apache.tika.parser.ParseContext;
 import org.apache.tika.sax.BodyContentHandler;
+import org.openxmlformats.schemas.officeDocument.x2006.customProperties.CTProperties;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,6 +45,7 @@ import com.amazonaws.services.s3.model.GetObjectRequest;
 import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.model.PutObjectRequest;
 import com.amazonaws.services.s3.model.S3Object;
+import com.thx.efss.common.ThxContentType;
 import com.thx.efss.dao.bean.ThxFile;
 import com.thx.efss.dao.bean.ThxFileProperty;
 import com.thx.efss.dao.mapper.ThxFileMapper;
@@ -62,8 +77,7 @@ public class FileServiceImpl implements FileService {
 		// aws s3에 파일 저장
 		// BasicAWSCredentials creds = new BasicAWSCredentials(AWS_ACCESS_KEY_ID,
 		// AWS_SECRET_ACCESS_KEY);
-		AmazonS3 s3Client = AmazonS3ClientBuilder.standard().withRegion(Regions.AP_NORTHEAST_2)
-				.withCredentials(new ProfileCredentialsProvider()).build();
+		AmazonS3 s3Client = AmazonS3ClientBuilder.standard().withRegion(Regions.AP_NORTHEAST_2).withCredentials(new ProfileCredentialsProvider()).build();
 
 		String contentKey = getUuid();
 		ObjectMetadata metadata = new ObjectMetadata();
@@ -83,8 +97,7 @@ public class FileServiceImpl implements FileService {
 		fileProperty.setFileId(thxFile.getId());
 		for (String propertyName : metadataNames) {
 			if (StringUtils.contains(propertyName, Metadata.USER_DEFINED_METADATA_NAME_PREFIX)) {
-				fileProperty.setPropertyKey(
-						StringUtils.substringAfter(propertyName, Metadata.USER_DEFINED_METADATA_NAME_PREFIX));
+				fileProperty.setPropertyKey(StringUtils.substringAfter(propertyName, Metadata.USER_DEFINED_METADATA_NAME_PREFIX));
 				fileProperty.setPropertyValue(mdata.get(propertyName));
 				thxFileMapper.insertFileProperty(fileProperty);
 			}
@@ -92,7 +105,7 @@ public class FileServiceImpl implements FileService {
 
 	}
 
-	// uuid생성
+	// uuid 생성
 	public String getUuid() {
 		return UUID.randomUUID().toString().replaceAll("-", "");
 	}
@@ -114,8 +127,7 @@ public class FileServiceImpl implements FileService {
 		if (fileList != null && fileList.size() > 0) {
 			ThxFile thxFile = fileList.get(0);
 
-			AmazonS3 s3Client = AmazonS3ClientBuilder.standard().withRegion(Regions.AP_NORTHEAST_2)
-					.withCredentials(new ProfileCredentialsProvider()).build();
+			AmazonS3 s3Client = AmazonS3ClientBuilder.standard().withRegion(Regions.AP_NORTHEAST_2).withCredentials(new ProfileCredentialsProvider()).build();
 
 			S3Object object = s3Client.getObject(new GetObjectRequest("thxcloud.com", thxFile.getStoredFileName()));
 			ObjectMetadata metaData = object.getObjectMetadata();
@@ -139,11 +151,9 @@ public class FileServiceImpl implements FileService {
 		}
 	}
 
-	private void setFileName(HttpServletRequest request, HttpServletResponse response, String fileName)
-			throws Exception {
+	private void setFileName(HttpServletRequest request, HttpServletResponse response, String fileName) throws Exception {
 		String header = request.getHeader("User-Agent");
-		if (header.contains("MSIE") || header.contains("Trident")) { // IE 11버전부터 Trident로 변경되었기때문에 추가해준다.
-			fileName = URLEncoder.encode(fileName, "UTF-8").replaceAll("\\+", "%20");
+		if (header.contains("MSIE") || header.contains("Trident")) {
 			response.setHeader("Content-Disposition", "attachment;filename=" + fileName + ";");
 		} else if (header.contains("Chrome")) {
 			fileName = new String(fileName.getBytes("UTF-8"), "ISO-8859-1");
@@ -179,10 +189,111 @@ public class FileServiceImpl implements FileService {
 			thxFileMapper.deleteFileProperty(fileId);
 			thxFileMapper.deleteFile(fileId);
 
-			AmazonS3 s3Client = AmazonS3ClientBuilder.standard().withRegion(Regions.AP_NORTHEAST_2)
-					.withCredentials(new ProfileCredentialsProvider()).build();
+			AmazonS3 s3Client = AmazonS3ClientBuilder.standard().withRegion(Regions.AP_NORTHEAST_2).withCredentials(new ProfileCredentialsProvider()).build();
 			s3Client.deleteObject(new DeleteObjectRequest("thxcloud.com", thxFile.getStoredFileName()));
 		}
 
+	}
+
+	@Override
+	public HashMap<String, Object> putFileProperty(long fileId, List<HashMap<String, Object>> properties) throws Exception {
+		HashMap<String, Object> returnMap = new HashMap<>();
+		returnMap.put("result", "success");
+
+		HashMap<String, Object> parameterMap = new HashMap<>();
+		parameterMap.put("id", fileId);
+
+		List<ThxFile> fileList = thxFileMapper.selectFileList(parameterMap);
+		ByteArrayOutputStream out = new ByteArrayOutputStream();
+		if (fileList != null && fileList.size() > 0) {
+			ThxFile thxFile = fileList.get(0);
+
+			AmazonS3 s3Client = AmazonS3ClientBuilder.standard().withRegion(Regions.AP_NORTHEAST_2).withCredentials(new ProfileCredentialsProvider()).build();
+			S3Object object = s3Client.getObject(new GetObjectRequest("thxcloud.com", thxFile.getStoredFileName()));
+			ObjectMetadata objectMetaData = object.getObjectMetadata();
+
+			POIXMLDocument xmlDocument = null;
+			POIDocument poiDocument = null;
+
+			String contentType = objectMetaData.getContentType();
+			ThxContentType thxContentType = ThxContentType.getValueOf(contentType);
+			switch (thxContentType) {
+			case DOC_OOXML:
+				xmlDocument = new XWPFDocument(object.getObjectContent());
+				break;
+			case XLX_OOXML:
+				xmlDocument = new XSSFWorkbook(object.getObjectContent());
+				break;
+			case PPT_OOXML:
+				xmlDocument = new XMLSlideShow(object.getObjectContent());
+				break;
+			case DOC_OLE:
+				poiDocument = new HWPFDocument(object.getObjectContent());
+				break;
+			case XLX_OLE:
+				poiDocument = new HSSFWorkbook(object.getObjectContent());
+				break;
+			case PPT_OLE:
+				poiDocument = new HSLFSlideShowImpl(object.getObjectContent());
+				break;
+			case PDF:
+			default:
+			}
+
+			if (xmlDocument != null) {
+				setDocOOXMLProperty(properties, xmlDocument);
+				xmlDocument.write(out);
+			}
+
+			if (poiDocument != null) {
+				setDocOLEProperty(properties, poiDocument);
+				poiDocument.write(out);
+			}
+
+			ByteArrayInputStream in = new ByteArrayInputStream(out.toByteArray());
+			objectMetaData.setContentLength(out.toByteArray().length);
+			s3Client.putObject(new PutObjectRequest("thxcloud.com", thxFile.getStoredFileName(), in, objectMetaData));
+
+			thxFileMapper.deleteFileProperty(fileId);
+			ThxFileProperty fileProperty = new ThxFileProperty();
+			fileProperty.setFileId(thxFile.getId());
+			for (HashMap<String, Object> propertyMap : properties) {
+				fileProperty.setPropertyKey((String) propertyMap.get("propertyKey"));
+				fileProperty.setPropertyValue((String) propertyMap.get("propertyValue"));
+				thxFileMapper.insertFileProperty(fileProperty);
+			}
+
+		}
+		return returnMap;
+	}
+
+	private void setDocOLEProperty(List<HashMap<String, Object>> properties, POIDocument poiDocument) throws Exception {
+		DocumentSummaryInformation summaryInfo = poiDocument.getDocumentSummaryInformation();
+		summaryInfo.removeCustomProperties();
+
+		CustomProperties customProperties = new CustomProperties();
+
+		for (int i = 0; i < properties.size(); i++) {
+			HashMap<String, Object> propertyMap = properties.get(i);
+			customProperties.put((String) propertyMap.get("propertyKey"), (String) propertyMap.get("propertyValue"));
+		}
+		summaryInfo.setCustomProperties(customProperties);
+	}
+
+	private void setDocOOXMLProperty(List<HashMap<String, Object>> properties, POIXMLDocument xmlDocument) throws Exception {
+		POIXMLProperties pOIXMLPropertie = xmlDocument.getProperties();
+		POIXMLProperties.CustomProperties customProperties = pOIXMLPropertie.getCustomProperties();
+
+		CTProperties ctProperties = customProperties.getUnderlyingProperties();
+		int propertySize = ctProperties.sizeOfPropertyArray();
+
+		for (int i = 0; i < propertySize; i++) {
+			ctProperties.removeProperty(0);
+		}
+
+		for (int i = 0; i < properties.size(); i++) {
+			HashMap<String, Object> propertyMap = properties.get(i);
+			customProperties.addProperty((String) propertyMap.get("propertyKey"), (String) propertyMap.get("propertyValue"));
+		}
 	}
 }

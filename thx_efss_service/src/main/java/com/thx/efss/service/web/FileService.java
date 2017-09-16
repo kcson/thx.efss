@@ -1,5 +1,6 @@
 package com.thx.efss.service.web;
 
+import java.util.HashMap;
 import java.util.List;
 
 import javax.servlet.http.HttpServletRequest;
@@ -20,4 +21,6 @@ public interface FileService {
 	public List<ThxFile> getFileList() throws Exception;
 
 	public List<ThxFileProperty> getFileProperty(long fileId) throws Exception;
+
+	public HashMap<String, Object> putFileProperty(long fileId, List<HashMap<String, Object>> properties) throws Exception;
 }
