@@ -12,6 +12,12 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import org.apache.commons.lang3.StringUtils;
+import org.apache.pdfbox.cos.COSDictionary;
+import org.apache.pdfbox.cos.COSName;
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.PDDocumentCatalog;
+import org.apache.pdfbox.pdmodel.PDDocumentInformation;
+import org.apache.pdfbox.pdmodel.common.PDMetadata;
 import org.apache.poi.POIDocument;
 import org.apache.poi.POIXMLDocument;
 import org.apache.poi.POIXMLProperties;
@@ -20,7 +26,6 @@ import org.apache.poi.hpsf.DocumentSummaryInformation;
 import org.apache.poi.hslf.usermodel.HSLFSlideShowImpl;
 import org.apache.poi.hssf.usermodel.HSSFWorkbook;
 import org.apache.poi.hwpf.HWPFDocument;
-import org.apache.poi.openxml4j.opc.OPCPackage;
 import org.apache.poi.xslf.usermodel.XMLSlideShow;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
@@ -45,6 +50,7 @@ import com.amazonaws.services.s3.model.GetObjectRequest;
 import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.model.PutObjectRequest;
 import com.amazonaws.services.s3.model.S3Object;
+import com.amazonaws.services.s3.model.S3ObjectInputStream;
 import com.thx.efss.common.ThxContentType;
 import com.thx.efss.dao.bean.ThxFile;
 import com.thx.efss.dao.bean.ThxFileProperty;
@@ -207,64 +213,112 @@ public class FileServiceImpl implements FileService {
 		ByteArrayOutputStream out = new ByteArrayOutputStream();
 		if (fileList != null && fileList.size() > 0) {
 			ThxFile thxFile = fileList.get(0);
-
-			AmazonS3 s3Client = AmazonS3ClientBuilder.standard().withRegion(Regions.AP_NORTHEAST_2).withCredentials(new ProfileCredentialsProvider()).build();
-			S3Object object = s3Client.getObject(new GetObjectRequest("thxcloud.com", thxFile.getStoredFileName()));
-			ObjectMetadata objectMetaData = object.getObjectMetadata();
-
+			S3ObjectInputStream s3ObjectInputStream = null;
+			
 			POIXMLDocument xmlDocument = null;
 			POIDocument poiDocument = null;
+			PDDocument pddocument = null;
+			try {
+				// AWS S3 에서 문서 가져옴
+				AmazonS3 s3Client = AmazonS3ClientBuilder.standard().withRegion(Regions.AP_NORTHEAST_2).withCredentials(new ProfileCredentialsProvider()).build();
+				S3Object object = s3Client.getObject(new GetObjectRequest("thxcloud.com", thxFile.getStoredFileName()));
+				ObjectMetadata objectMetaData = object.getObjectMetadata();
+				s3ObjectInputStream = object.getObjectContent();
+				
+				// 문서 포맷별 속성 정보 업데이트
+				// 동일한 인터페이스를 사용할 수 있는지 검토 필요
+				String contentType = objectMetaData.getContentType();
+				ThxContentType thxContentType = ThxContentType.getValueOf(contentType);
+				switch (thxContentType) {
+				case DOC_OOXML:
+					xmlDocument = new XWPFDocument(s3ObjectInputStream);
+					break;
+				case XLX_OOXML:
+					xmlDocument = new XSSFWorkbook(s3ObjectInputStream);
+					break;
+				case PPT_OOXML:
+					xmlDocument = new XMLSlideShow(s3ObjectInputStream);
+					break;
+				case DOC_OLE:
+					poiDocument = new HWPFDocument(s3ObjectInputStream);
+					break;
+				case XLX_OLE:
+					poiDocument = new HSSFWorkbook(s3ObjectInputStream);
+					break;
+				case PPT_OLE:
+					poiDocument = new HSLFSlideShowImpl(s3ObjectInputStream);
+					break;
+				case PDF:
+					pddocument = PDDocument.load(s3ObjectInputStream);
+					break;
+				default:
+				}
 
-			String contentType = objectMetaData.getContentType();
-			ThxContentType thxContentType = ThxContentType.getValueOf(contentType);
-			switch (thxContentType) {
-			case DOC_OOXML:
-				xmlDocument = new XWPFDocument(object.getObjectContent());
-				break;
-			case XLX_OOXML:
-				xmlDocument = new XSSFWorkbook(object.getObjectContent());
-				break;
-			case PPT_OOXML:
-				xmlDocument = new XMLSlideShow(object.getObjectContent());
-				break;
-			case DOC_OLE:
-				poiDocument = new HWPFDocument(object.getObjectContent());
-				break;
-			case XLX_OLE:
-				poiDocument = new HSSFWorkbook(object.getObjectContent());
-				break;
-			case PPT_OLE:
-				poiDocument = new HSLFSlideShowImpl(object.getObjectContent());
-				break;
-			case PDF:
-			default:
+				if (xmlDocument != null) {
+					setDocOOXMLProperty(properties, xmlDocument);
+					xmlDocument.write(out);
+				}
+
+				if (poiDocument != null) {
+					setDocOLEProperty(properties, poiDocument);
+					poiDocument.write(out);
+				}
+				
+				if(pddocument != null) {
+					//DB에 있는 속성 가져옴
+					//PDF는 사용자 속성만 삭제하는 인터페이스를 찾지 못해 DB에 있는 값을 이용하여
+					//해당 key값을 삭제함
+					List<ThxFileProperty> storedProperties = thxFileMapper.selectFileProperty(fileId);
+
+					setPdfProperty(properties, storedProperties, pddocument);
+					pddocument.save(out);
+				}
+
+				//속성이 변경된 문서를 다시 AWS S3에 씀
+				ByteArrayInputStream in = new ByteArrayInputStream(out.toByteArray());
+				objectMetaData.setContentLength(out.toByteArray().length);
+				s3Client.putObject(new PutObjectRequest("thxcloud.com", thxFile.getStoredFileName(), in, objectMetaData));
+
+				//DB에 있는 속성 정보 변경
+				thxFileMapper.deleteFileProperty(fileId);
+				ThxFileProperty fileProperty = new ThxFileProperty();
+				fileProperty.setFileId(thxFile.getId());
+				for (HashMap<String, Object> propertyMap : properties) {
+					fileProperty.setPropertyKey((String) propertyMap.get("propertyKey"));
+					fileProperty.setPropertyValue((String) propertyMap.get("propertyValue"));
+					thxFileMapper.insertFileProperty(fileProperty);
+				}
+			} catch (Exception e) {
+				throw e;
+			} finally {
+				if(s3ObjectInputStream != null) {
+					s3ObjectInputStream.close();
+				}
+				if(xmlDocument != null) {
+					xmlDocument.close();
+				}
+				if(poiDocument != null) {
+					poiDocument.close();
+				}
+				if(pddocument != null) {
+					pddocument.close();
+				}
 			}
-
-			if (xmlDocument != null) {
-				setDocOOXMLProperty(properties, xmlDocument);
-				xmlDocument.write(out);
-			}
-
-			if (poiDocument != null) {
-				setDocOLEProperty(properties, poiDocument);
-				poiDocument.write(out);
-			}
-
-			ByteArrayInputStream in = new ByteArrayInputStream(out.toByteArray());
-			objectMetaData.setContentLength(out.toByteArray().length);
-			s3Client.putObject(new PutObjectRequest("thxcloud.com", thxFile.getStoredFileName(), in, objectMetaData));
-
-			thxFileMapper.deleteFileProperty(fileId);
-			ThxFileProperty fileProperty = new ThxFileProperty();
-			fileProperty.setFileId(thxFile.getId());
-			for (HashMap<String, Object> propertyMap : properties) {
-				fileProperty.setPropertyKey((String) propertyMap.get("propertyKey"));
-				fileProperty.setPropertyValue((String) propertyMap.get("propertyValue"));
-				thxFileMapper.insertFileProperty(fileProperty);
-			}
-
 		}
 		return returnMap;
+	}
+
+	private void setPdfProperty(List<HashMap<String, Object>> properties, List<ThxFileProperty> storedProperties, PDDocument pddocument) {
+		PDDocumentInformation documentInformation = pddocument.getDocumentInformation();
+		COSDictionary dic = documentInformation.getCOSObject();
+		for(ThxFileProperty fileProperty : storedProperties) {
+			dic.removeItem(COSName.getPDFName(fileProperty.getPropertyKey()));
+		}
+		
+		for(HashMap<String, Object> propertyMap : properties) {
+			documentInformation.setCustomMetadataValue((String) propertyMap.get("propertyKey"), (String) propertyMap.get("propertyValue"));
+		}
+		pddocument.setDocumentInformation(documentInformation);
 	}
 
 	private void setDocOLEProperty(List<HashMap<String, Object>> properties, POIDocument poiDocument) throws Exception {
