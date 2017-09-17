@@ -284,8 +284,13 @@ public class FileServiceImpl implements FileService {
 				ThxFileProperty fileProperty = new ThxFileProperty();
 				fileProperty.setFileId(thxFile.getId());
 				for (HashMap<String, Object> propertyMap : properties) {
-					fileProperty.setPropertyKey((String) propertyMap.get("propertyKey"));
-					fileProperty.setPropertyValue((String) propertyMap.get("propertyValue"));
+					String propertyKey = (String) propertyMap.get("propertyKey");
+					String propertyValue = (String) propertyMap.get("propertyValue");
+					if(StringUtils.isBlank(propertyKey)) {
+						continue;
+					}
+					fileProperty.setPropertyKey(propertyKey);
+					fileProperty.setPropertyValue(propertyValue);
 					thxFileMapper.insertFileProperty(fileProperty);
 				}
 			} catch (Exception e) {
@@ -316,7 +321,12 @@ public class FileServiceImpl implements FileService {
 		}
 		
 		for(HashMap<String, Object> propertyMap : properties) {
-			documentInformation.setCustomMetadataValue((String) propertyMap.get("propertyKey"), (String) propertyMap.get("propertyValue"));
+			String propertyKey = (String) propertyMap.get("propertyKey");
+			String propertyValue = (String) propertyMap.get("propertyValue");
+			if(StringUtils.isBlank(propertyKey)) {
+				continue;
+			}
+			documentInformation.setCustomMetadataValue(propertyKey, propertyValue);
 		}
 		pddocument.setDocumentInformation(documentInformation);
 	}
@@ -329,7 +339,13 @@ public class FileServiceImpl implements FileService {
 
 		for (int i = 0; i < properties.size(); i++) {
 			HashMap<String, Object> propertyMap = properties.get(i);
-			customProperties.put((String) propertyMap.get("propertyKey"), (String) propertyMap.get("propertyValue"));
+			String propertyKey = (String) propertyMap.get("propertyKey");
+			String propertyValue = (String) propertyMap.get("propertyValue");
+			if(StringUtils.isBlank(propertyKey)) {
+				continue;
+			}
+
+			customProperties.put(propertyKey, propertyValue);
 		}
 		summaryInfo.setCustomProperties(customProperties);
 	}
@@ -347,7 +363,13 @@ public class FileServiceImpl implements FileService {
 
 		for (int i = 0; i < properties.size(); i++) {
 			HashMap<String, Object> propertyMap = properties.get(i);
-			customProperties.addProperty((String) propertyMap.get("propertyKey"), (String) propertyMap.get("propertyValue"));
+			String propertyKey = (String) propertyMap.get("propertyKey");
+			String propertyValue = (String) propertyMap.get("propertyValue");
+			if(StringUtils.isBlank(propertyKey)) {
+				continue;
+			}
+
+			customProperties.addProperty(propertyKey, propertyValue);
 		}
 	}
 }

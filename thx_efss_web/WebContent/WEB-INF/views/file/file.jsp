@@ -145,14 +145,16 @@ function showInfo(fileId) {
 				$tr.append($('<td><input type="text" value="'+property.propertyKey+'"></td>'));
 				$tr.append($('<td><input type="text" value="'+property.propertyValue+'"></td>'));
 				$tr.append($('<td><span class="glyphicon glyphicon-remove"></span></td>'));
-				
 				$tbody.append($tr);
 			});
+			$tr = $('<tr></tr>');
+			$tr.append($('<td><input type="text" value=""></td>'));
+			$tr.append($('<td><input type="text" value=""></td>'));
+			$tr.append($('<td><span class="glyphicon glyphicon-plus"></span></td>'));
+			$tbody.append($tr);
 			
-			$('#fileProperty .glyphicon').on('click', function(e) {
-				$tr = $(e.target).parent().parent();
-				$tr.remove();
-			});
+			$('#fileProperty .glyphicon-remove').on('click', removeProperty);			
+			$('#fileProperty .glyphicon-plus').on('click',addProperty);
 			
 			$('#myModal').modal('show');
 		},
@@ -160,6 +162,29 @@ function showInfo(fileId) {
 			alert(status + ":" + error);
 		}
 	});
+}
+
+function addProperty(e) {
+	$tbody = $('#fileProperty');
+	$tr = $('<tr></tr>');
+	$tr.append($('<td><input type="text" value=""></td>'));
+	$tr.append($('<td><input type="text" value=""></td>'));
+	$tr.append($('<td><span class="glyphicon glyphicon-plus"></span></td>'));
+	$tbody.append($tr);
+	
+	$(e.target).removeClass('glyphicon-plus');
+	$(e.target).addClass('glyphicon-remove');
+	
+	$(e.target).off();
+	$(e.target).on('click', removeProperty);
+	$tr.find('.glyphicon-plus').on('click',addProperty);
+	
+	//$('#fileProperty .glyphicon-plus').on('click',addProperty);
+}
+
+function removeProperty(e) {
+	$tr = $(e.target).parent().parent();
+	$tr.remove();
 }
 
 function deleteFile(fileId) {
