@@ -12,12 +12,11 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import org.apache.commons.lang3.StringUtils;
+import org.apache.http.HttpHost;
 import org.apache.pdfbox.cos.COSDictionary;
 import org.apache.pdfbox.cos.COSName;
 import org.apache.pdfbox.pdmodel.PDDocument;
-import org.apache.pdfbox.pdmodel.PDDocumentCatalog;
 import org.apache.pdfbox.pdmodel.PDDocumentInformation;
-import org.apache.pdfbox.pdmodel.common.PDMetadata;
 import org.apache.poi.POIDocument;
 import org.apache.poi.POIXMLDocument;
 import org.apache.poi.POIXMLProperties;
@@ -33,6 +32,12 @@ import org.apache.tika.metadata.Metadata;
 import org.apache.tika.parser.AutoDetectParser;
 import org.apache.tika.parser.ParseContext;
 import org.apache.tika.sax.BodyContentHandler;
+import org.elasticsearch.action.DocWriteResponse;
+import org.elasticsearch.action.DocWriteResponse.Result;
+import org.elasticsearch.action.index.IndexRequest;
+import org.elasticsearch.action.index.IndexResponse;
+import org.elasticsearch.client.RestClient;
+import org.elasticsearch.client.RestHighLevelClient;
 import org.openxmlformats.schemas.officeDocument.x2006.customProperties.CTProperties;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -91,6 +96,10 @@ public class FileServiceImpl implements FileService {
 		metadata.setContentType(contentType);
 		s3Client.putObject(new PutObjectRequest("thxcloud.com", contentKey, uploadFile.getInputStream(), metadata));
 
+		// elasticsearch 로 인덱싱
+		// Async로(?)
+		tossToES(contentKey, contenthandler.toString());
+
 		// s3에 저장 성공하면 DB에 파일 관련 정보 저장
 		ThxFile thxFile = new ThxFile();
 		thxFile.setOriginalFileName(originFileName);
@@ -109,6 +118,26 @@ public class FileServiceImpl implements FileService {
 			}
 		}
 
+	}
+
+	static private String ES_END_POINT = "search-thxcloud-y5obigmkoyu4ig5j6inq22kqii.ap-northeast-2.es.amazonaws.com";
+
+	private void tossToES(String contentKey, String content) throws Exception {
+		RestClient restClient = RestClient.builder(new HttpHost(ES_END_POINT, 443, "https")).build();
+		RestHighLevelClient client = new RestHighLevelClient(restClient);
+
+		HashMap<String, Object> jsonMap = new HashMap<>();
+		jsonMap.put("storedFileName", contentKey);
+		jsonMap.put("content", content);
+		IndexRequest indexRequest = new IndexRequest("thxcloud", "doc", contentKey).source(jsonMap);
+		
+		IndexResponse indexResponse = client.index(indexRequest);
+		
+		Result result = indexResponse.getResult();
+		switch(result) {
+		case CREATED:
+		case UPDATED:			
+		}
 	}
 
 	// uuid 생성
@@ -214,7 +243,7 @@ public class FileServiceImpl implements FileService {
 		if (fileList != null && fileList.size() > 0) {
 			ThxFile thxFile = fileList.get(0);
 			S3ObjectInputStream s3ObjectInputStream = null;
-			
+
 			POIXMLDocument xmlDocument = null;
 			POIDocument poiDocument = null;
 			PDDocument pddocument = null;
@@ -224,7 +253,7 @@ public class FileServiceImpl implements FileService {
 				S3Object object = s3Client.getObject(new GetObjectRequest("thxcloud.com", thxFile.getStoredFileName()));
 				ObjectMetadata objectMetaData = object.getObjectMetadata();
 				s3ObjectInputStream = object.getObjectContent();
-				
+
 				// 문서 포맷별 속성 정보 업데이트
 				// 동일한 인터페이스를 사용할 수 있는지 검토 필요
 				String contentType = objectMetaData.getContentType();
@@ -263,30 +292,30 @@ public class FileServiceImpl implements FileService {
 					setDocOLEProperty(properties, poiDocument);
 					poiDocument.write(out);
 				}
-				
-				if(pddocument != null) {
-					//DB에 있는 속성 가져옴
-					//PDF는 사용자 속성만 삭제하는 인터페이스를 찾지 못해 DB에 있는 값을 이용하여
-					//해당 key값을 삭제함
+
+				if (pddocument != null) {
+					// DB에 있는 속성 가져옴
+					// PDF는 사용자 속성만 삭제하는 인터페이스를 찾지 못해 DB에 있는 값을 이용하여
+					// 해당 key값을 삭제함
 					List<ThxFileProperty> storedProperties = thxFileMapper.selectFileProperty(fileId);
 
 					setPdfProperty(properties, storedProperties, pddocument);
 					pddocument.save(out);
 				}
 
-				//속성이 변경된 문서를 다시 AWS S3에 씀
+				// 속성이 변경된 문서를 다시 AWS S3에 씀
 				ByteArrayInputStream in = new ByteArrayInputStream(out.toByteArray());
 				objectMetaData.setContentLength(out.toByteArray().length);
 				s3Client.putObject(new PutObjectRequest("thxcloud.com", thxFile.getStoredFileName(), in, objectMetaData));
 
-				//DB에 있는 속성 정보 변경
+				// DB에 있는 속성 정보 변경
 				thxFileMapper.deleteFileProperty(fileId);
 				ThxFileProperty fileProperty = new ThxFileProperty();
 				fileProperty.setFileId(thxFile.getId());
 				for (HashMap<String, Object> propertyMap : properties) {
 					String propertyKey = (String) propertyMap.get("propertyKey");
 					String propertyValue = (String) propertyMap.get("propertyValue");
-					if(StringUtils.isBlank(propertyKey)) {
+					if (StringUtils.isBlank(propertyKey)) {
 						continue;
 					}
 					fileProperty.setPropertyKey(propertyKey);
@@ -296,16 +325,16 @@ public class FileServiceImpl implements FileService {
 			} catch (Exception e) {
 				throw e;
 			} finally {
-				if(s3ObjectInputStream != null) {
+				if (s3ObjectInputStream != null) {
 					s3ObjectInputStream.close();
 				}
-				if(xmlDocument != null) {
+				if (xmlDocument != null) {
 					xmlDocument.close();
 				}
-				if(poiDocument != null) {
+				if (poiDocument != null) {
 					poiDocument.close();
 				}
-				if(pddocument != null) {
+				if (pddocument != null) {
 					pddocument.close();
 				}
 			}
@@ -316,14 +345,14 @@ public class FileServiceImpl implements FileService {
 	private void setPdfProperty(List<HashMap<String, Object>> properties, List<ThxFileProperty> storedProperties, PDDocument pddocument) {
 		PDDocumentInformation documentInformation = pddocument.getDocumentInformation();
 		COSDictionary dic = documentInformation.getCOSObject();
-		for(ThxFileProperty fileProperty : storedProperties) {
+		for (ThxFileProperty fileProperty : storedProperties) {
 			dic.removeItem(COSName.getPDFName(fileProperty.getPropertyKey()));
 		}
-		
-		for(HashMap<String, Object> propertyMap : properties) {
+
+		for (HashMap<String, Object> propertyMap : properties) {
 			String propertyKey = (String) propertyMap.get("propertyKey");
 			String propertyValue = (String) propertyMap.get("propertyValue");
-			if(StringUtils.isBlank(propertyKey)) {
+			if (StringUtils.isBlank(propertyKey)) {
 				continue;
 			}
 			documentInformation.setCustomMetadataValue(propertyKey, propertyValue);
@@ -341,7 +370,7 @@ public class FileServiceImpl implements FileService {
 			HashMap<String, Object> propertyMap = properties.get(i);
 			String propertyKey = (String) propertyMap.get("propertyKey");
 			String propertyValue = (String) propertyMap.get("propertyValue");
-			if(StringUtils.isBlank(propertyKey)) {
+			if (StringUtils.isBlank(propertyKey)) {
 				continue;
 			}
 
@@ -365,7 +394,7 @@ public class FileServiceImpl implements FileService {
 			HashMap<String, Object> propertyMap = properties.get(i);
 			String propertyKey = (String) propertyMap.get("propertyKey");
 			String propertyValue = (String) propertyMap.get("propertyValue");
-			if(StringUtils.isBlank(propertyKey)) {
+			if (StringUtils.isBlank(propertyKey)) {
 				continue;
 			}
 
