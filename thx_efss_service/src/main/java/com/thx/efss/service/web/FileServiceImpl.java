@@ -33,10 +33,17 @@ import org.apache.tika.parser.AutoDetectParser;
 import org.apache.tika.parser.ParseContext;
 import org.apache.tika.sax.BodyContentHandler;
 import org.elasticsearch.action.DocWriteResponse.Result;
+import org.elasticsearch.action.delete.DeleteRequest;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.index.IndexResponse;
+import org.elasticsearch.action.search.SearchRequest;
+import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestHighLevelClient;
+import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.search.SearchHit;
+import org.elasticsearch.search.SearchHits;
+import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.openxmlformats.schemas.officeDocument.x2006.customProperties.CTProperties;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -87,7 +94,8 @@ public class FileServiceImpl implements FileService {
 		// aws s3에 파일 저장
 		// BasicAWSCredentials creds = new BasicAWSCredentials(AWS_ACCESS_KEY_ID,
 		// AWS_SECRET_ACCESS_KEY);
-		AmazonS3 s3Client = AmazonS3ClientBuilder.standard().withRegion(Regions.AP_NORTHEAST_2).withCredentials(new ProfileCredentialsProvider()).build();
+		AmazonS3 s3Client = AmazonS3ClientBuilder.standard().withRegion(Regions.AP_NORTHEAST_2)
+				.withCredentials(new ProfileCredentialsProvider()).build();
 
 		String contentKey = getUuid();
 		ObjectMetadata metadata = new ObjectMetadata();
@@ -111,7 +119,8 @@ public class FileServiceImpl implements FileService {
 		fileProperty.setFileId(thxFile.getId());
 		for (String propertyName : metadataNames) {
 			if (StringUtils.contains(propertyName, Metadata.USER_DEFINED_METADATA_NAME_PREFIX)) {
-				fileProperty.setPropertyKey(StringUtils.substringAfter(propertyName, Metadata.USER_DEFINED_METADATA_NAME_PREFIX));
+				fileProperty.setPropertyKey(
+						StringUtils.substringAfter(propertyName, Metadata.USER_DEFINED_METADATA_NAME_PREFIX));
 				fileProperty.setPropertyValue(mdata.get(propertyName));
 				thxFileMapper.insertFileProperty(fileProperty);
 			}
@@ -138,6 +147,21 @@ public class FileServiceImpl implements FileService {
 		case UPDATED:
 		default:
 		}
+
+		// search
+		SearchRequest searchRequest = new SearchRequest();
+		SearchSourceBuilder sourceBuilder = new SearchSourceBuilder();
+		sourceBuilder.query(QueryBuilders.termQuery("content", "손기철"));
+
+		searchRequest.source(sourceBuilder);
+		SearchResponse searchResponse = client.search(searchRequest);
+
+		SearchHits hits = searchResponse.getHits();
+		SearchHit[] searchHits = hits.getHits();
+		String sourceAsString = null;
+		for (SearchHit hit : searchHits) {
+			sourceAsString = hit.getSourceAsString();
+		}
 	}
 
 	// uuid 생성
@@ -162,7 +186,8 @@ public class FileServiceImpl implements FileService {
 		if (fileList != null && fileList.size() > 0) {
 			ThxFile thxFile = fileList.get(0);
 
-			AmazonS3 s3Client = AmazonS3ClientBuilder.standard().withRegion(Regions.AP_NORTHEAST_2).withCredentials(new ProfileCredentialsProvider()).build();
+			AmazonS3 s3Client = AmazonS3ClientBuilder.standard().withRegion(Regions.AP_NORTHEAST_2)
+					.withCredentials(new ProfileCredentialsProvider()).build();
 
 			S3Object object = s3Client.getObject(new GetObjectRequest("thxcloud.com", thxFile.getStoredFileName()));
 			ObjectMetadata metaData = object.getObjectMetadata();
@@ -186,7 +211,8 @@ public class FileServiceImpl implements FileService {
 		}
 	}
 
-	private void setFileName(HttpServletRequest request, HttpServletResponse response, String fileName) throws Exception {
+	private void setFileName(HttpServletRequest request, HttpServletResponse response, String fileName)
+			throws Exception {
 		String header = request.getHeader("User-Agent");
 		if (header.contains("MSIE") || header.contains("Trident")) {
 			response.setHeader("Content-Disposition", "attachment;filename=" + fileName + ";");
@@ -221,17 +247,28 @@ public class FileServiceImpl implements FileService {
 		if (fileList != null && fileList.size() > 0) {
 			ThxFile thxFile = fileList.get(0);
 
+			//DB 삭제
 			thxFileMapper.deleteFileProperty(fileId);
 			thxFileMapper.deleteFile(fileId);
 
-			AmazonS3 s3Client = AmazonS3ClientBuilder.standard().withRegion(Regions.AP_NORTHEAST_2).withCredentials(new ProfileCredentialsProvider()).build();
+			//s3 삭제
+			AmazonS3 s3Client = AmazonS3ClientBuilder.standard().withRegion(Regions.AP_NORTHEAST_2)
+					.withCredentials(new ProfileCredentialsProvider()).build();
 			s3Client.deleteObject(new DeleteObjectRequest("thxcloud.com", thxFile.getStoredFileName()));
+			
+			//ES삭제
+			RestClient restClient = RestClient.builder(new HttpHost(ES_END_POINT, 443, "https")).build();
+			RestHighLevelClient client = new RestHighLevelClient(restClient);
+			
+			DeleteRequest deleteRequest = new DeleteRequest("thxcloud", "doc", thxFile.getStoredFileName());
+			client.delete(deleteRequest);
 		}
 
 	}
 
 	@Override
-	public HashMap<String, Object> putFileProperty(long fileId, List<HashMap<String, Object>> properties) throws Exception {
+	public HashMap<String, Object> putFileProperty(long fileId, List<HashMap<String, Object>> properties)
+			throws Exception {
 		HashMap<String, Object> returnMap = new HashMap<>();
 		returnMap.put("result", "success");
 
@@ -249,7 +286,8 @@ public class FileServiceImpl implements FileService {
 			PDDocument pddocument = null;
 			try {
 				// AWS S3 에서 문서 가져옴
-				AmazonS3 s3Client = AmazonS3ClientBuilder.standard().withRegion(Regions.AP_NORTHEAST_2).withCredentials(new ProfileCredentialsProvider()).build();
+				AmazonS3 s3Client = AmazonS3ClientBuilder.standard().withRegion(Regions.AP_NORTHEAST_2)
+						.withCredentials(new ProfileCredentialsProvider()).build();
 				S3Object object = s3Client.getObject(new GetObjectRequest("thxcloud.com", thxFile.getStoredFileName()));
 				ObjectMetadata objectMetaData = object.getObjectMetadata();
 				s3ObjectInputStream = object.getObjectContent();
@@ -306,7 +344,8 @@ public class FileServiceImpl implements FileService {
 				// 속성이 변경된 문서를 다시 AWS S3에 씀
 				ByteArrayInputStream in = new ByteArrayInputStream(out.toByteArray());
 				objectMetaData.setContentLength(out.toByteArray().length);
-				s3Client.putObject(new PutObjectRequest("thxcloud.com", thxFile.getStoredFileName(), in, objectMetaData));
+				s3Client.putObject(
+						new PutObjectRequest("thxcloud.com", thxFile.getStoredFileName(), in, objectMetaData));
 
 				// DB에 있는 속성 정보 변경
 				thxFileMapper.deleteFileProperty(fileId);
@@ -342,7 +381,8 @@ public class FileServiceImpl implements FileService {
 		return returnMap;
 	}
 
-	private void setPdfProperty(List<HashMap<String, Object>> properties, List<ThxFileProperty> storedProperties, PDDocument pddocument) {
+	private void setPdfProperty(List<HashMap<String, Object>> properties, List<ThxFileProperty> storedProperties,
+			PDDocument pddocument) {
 		PDDocumentInformation documentInformation = pddocument.getDocumentInformation();
 		COSDictionary dic = documentInformation.getCOSObject();
 		for (ThxFileProperty fileProperty : storedProperties) {
@@ -379,7 +419,8 @@ public class FileServiceImpl implements FileService {
 		summaryInfo.setCustomProperties(customProperties);
 	}
 
-	private void setDocOOXMLProperty(List<HashMap<String, Object>> properties, POIXMLDocument xmlDocument) throws Exception {
+	private void setDocOOXMLProperty(List<HashMap<String, Object>> properties, POIXMLDocument xmlDocument)
+			throws Exception {
 		POIXMLProperties pOIXMLPropertie = xmlDocument.getProperties();
 		POIXMLProperties.CustomProperties customProperties = pOIXMLPropertie.getCustomProperties();
 
