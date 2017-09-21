@@ -32,7 +32,6 @@ import org.apache.tika.metadata.Metadata;
 import org.apache.tika.parser.AutoDetectParser;
 import org.apache.tika.parser.ParseContext;
 import org.apache.tika.sax.BodyContentHandler;
-import org.elasticsearch.action.DocWriteResponse;
 import org.elasticsearch.action.DocWriteResponse.Result;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.index.IndexResponse;
@@ -130,13 +129,14 @@ public class FileServiceImpl implements FileService {
 		jsonMap.put("storedFileName", contentKey);
 		jsonMap.put("content", content);
 		IndexRequest indexRequest = new IndexRequest("thxcloud", "doc", contentKey).source(jsonMap);
-		
+
 		IndexResponse indexResponse = client.index(indexRequest);
-		
+
 		Result result = indexResponse.getResult();
-		switch(result) {
+		switch (result) {
 		case CREATED:
-		case UPDATED:			
+		case UPDATED:
+		default:
 		}
 	}
 
