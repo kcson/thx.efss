@@ -68,6 +68,9 @@
 			<if test="id != null">
 			id = #{id}
 			</if>
+			<if test="storedFileName != null">
+			stored_file_name = #{storedFileName}
+			</if>
 		</where>	
 	</select>
 	

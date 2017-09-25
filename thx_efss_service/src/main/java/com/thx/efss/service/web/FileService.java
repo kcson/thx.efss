@@ -18,7 +18,7 @@ public interface FileService {
 
 	public void deleteFile(long fileId) throws Exception;
 
-	public List<ThxFile> getFileList() throws Exception;
+	public List<ThxFile> getFileList(String fullTextSearchParam) throws Exception;
 
 	public List<ThxFileProperty> getFileProperty(long fileId) throws Exception;
 

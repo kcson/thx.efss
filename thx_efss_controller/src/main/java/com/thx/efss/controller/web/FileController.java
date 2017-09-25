@@ -44,10 +44,10 @@ public class FileController {
 	}
 
 	@RequestMapping(value = "/file/list", method = RequestMethod.GET, produces = MediaType.APPLICATION_JSON_UTF8_VALUE)
-	public @ResponseBody List<ThxFile> fileList() {
+	public @ResponseBody List<ThxFile> fileList(@RequestParam("searchParam") String searchParam) {
 		List<ThxFile> fileList = new ArrayList<>();
 		try {
-			fileList = fileService.getFileList();
+			fileList = fileService.getFileList(searchParam);
 		} catch (Exception e) {
 			e.printStackTrace();
 		}

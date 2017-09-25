@@ -5,6 +5,12 @@
 	</div>
 	<input type="hidden" name="${_csrf.parameterName}"	value="${_csrf.token}"/>
 	<button type="submit" class="btn btn-default">업로드</button>
+	
+	<div class="form-group">
+		<label>본문 검색</label>
+		<input type="text" name="fullTextSearchParam" class="form-control">
+	</div>
+	<button type="button" onclick="fullTextSearch()" class="btn btn-default">검색</button>
 </form>
 
 <form id="downLoadForm" method="get">
@@ -97,9 +103,37 @@ $(document).ready(function(){
 	
 });
 
+function fullTextSearch() {
+	var searchParam = $("[name='fullTextSearchParam']").val();
+	$.ajax({
+		url: '/file/list?searchParam=' + searchParam,
+		type: 'get',
+		dataType : 'json',
+		success: function(data){
+			$tbody = $('#fileList');
+			$tbody.empty();
+			data.forEach(function(file){
+				$tr = $('<tr></tr>');
+				$tr.append($('<td style="cursor:pointer;" onclick="downLoadFile(\''+file.id+'\')">'+file.originalFileName+'</td>'));
+				$tr.append($('<td>'+file.storedFileName+'</td>'));
+				$tr.append($('<td>'+file.entryDate+'</td>'));
+				$tr.append($('<td><button type="button" onclick="showInfo(\''+file.id+'\')" class="btn btn-info btn-sm" data-toggle="modal">속성보기</button></td>'));
+				$tr.append($('<td><button type="button" onclick="deleteFile(\''+file.id+'\')" class="btn btn-warning btn-sm" data-toggle="modal">파일삭제</button></td>'));
+				
+				$tbody.append($tr);
+				//$tr = $('<tr><td style="cursor:pointer;" onclick="downLoadFile(\''+file.id+'\')">'+file.originalFileName+'</td><td>'+file.storedFileName+'</td><td>'+file.entryDate+'</td></tr>');
+				//$tr.appendTo($tbody);
+			});
+		},
+		error: function(request, status, error) {
+			alert(status + ":" + error);
+		}
+	});
+}
+
 function getFileList() {
 	$.ajax({
-		url: '/file/list',
+		url: '/file/list?searchParam=',
 		type: 'get',
 		dataType : 'json',
 		success: function(data){

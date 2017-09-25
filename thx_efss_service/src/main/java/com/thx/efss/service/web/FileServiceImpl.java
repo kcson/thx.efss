@@ -4,8 +4,10 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import javax.servlet.http.HttpServletRequest;
@@ -28,16 +30,17 @@ import org.apache.poi.hwpf.HWPFDocument;
 import org.apache.poi.xslf.usermodel.XMLSlideShow;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
+import org.apache.tika.io.TikaInputStream;
 import org.apache.tika.metadata.Metadata;
 import org.apache.tika.parser.AutoDetectParser;
 import org.apache.tika.parser.ParseContext;
-import org.apache.tika.sax.BodyContentHandler;
+import org.apache.tika.sax.ContentHandlerDecorator;
 import org.elasticsearch.action.DocWriteResponse.Result;
 import org.elasticsearch.action.delete.DeleteRequest;
-import org.elasticsearch.action.index.IndexRequest;
-import org.elasticsearch.action.index.IndexResponse;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.action.update.UpdateRequest;
+import org.elasticsearch.action.update.UpdateResponse;
 import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.index.query.QueryBuilders;
@@ -50,7 +53,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.multipart.commons.CommonsMultipartResolver;
-import org.xml.sax.ContentHandler;
 
 import com.amazonaws.auth.profile.ProfileCredentialsProvider;
 import com.amazonaws.regions.Regions;
@@ -79,25 +81,27 @@ public class FileServiceImpl implements FileService {
 	@Transactional
 	public void saveFile(MultipartFile uploadFile) throws Exception {
 		String originFileName = new String(uploadFile.getOriginalFilename().getBytes("8859_1"), "UTF-8");
+		String contentKey = getUuid();
 
 		// int thresHold =
 		// commonsMultipartResolver.getFileItemFactory().getSizeThreshold();
 		// 파일에서 사용자 속성 가져오기
-		ContentHandler contenthandler = new BodyContentHandler(-1);
+		// ContentHandler contenthandler = new BodyContentHandler(-1);
+		ThxContentHandler contenthandler = new ThxContentHandler(contentKey);
 		Metadata mdata = new Metadata();
 
 		AutoDetectParser parser = new AutoDetectParser();
 		ParseContext context = new ParseContext();
-		parser.parse(uploadFile.getInputStream(), contenthandler, mdata, context);
+		parser.parse(TikaInputStream.get(uploadFile.getInputStream()), contenthandler, mdata, context);
+		contenthandler.finalize();
+
 		String contentType = mdata.get(Metadata.CONTENT_TYPE);
 
 		// aws s3에 파일 저장
 		// BasicAWSCredentials creds = new BasicAWSCredentials(AWS_ACCESS_KEY_ID,
 		// AWS_SECRET_ACCESS_KEY);
-		AmazonS3 s3Client = AmazonS3ClientBuilder.standard().withRegion(Regions.AP_NORTHEAST_2)
-				.withCredentials(new ProfileCredentialsProvider()).build();
+		AmazonS3 s3Client = AmazonS3ClientBuilder.standard().withRegion(Regions.AP_NORTHEAST_2).withCredentials(new ProfileCredentialsProvider()).build();
 
-		String contentKey = getUuid();
 		ObjectMetadata metadata = new ObjectMetadata();
 		metadata.setContentLength(uploadFile.getSize());
 		metadata.setContentType(contentType);
@@ -105,7 +109,7 @@ public class FileServiceImpl implements FileService {
 
 		// elasticsearch 로 인덱싱
 		// Async로(?)
-		tossToES(contentKey, contenthandler.toString());
+		// tossToES(contentKey, contenthandler.toString());
 
 		// s3에 저장 성공하면 DB에 파일 관련 정보 저장
 		ThxFile thxFile = new ThxFile();
@@ -119,50 +123,79 @@ public class FileServiceImpl implements FileService {
 		fileProperty.setFileId(thxFile.getId());
 		for (String propertyName : metadataNames) {
 			if (StringUtils.contains(propertyName, Metadata.USER_DEFINED_METADATA_NAME_PREFIX)) {
-				fileProperty.setPropertyKey(
-						StringUtils.substringAfter(propertyName, Metadata.USER_DEFINED_METADATA_NAME_PREFIX));
+				fileProperty.setPropertyKey(StringUtils.substringAfter(propertyName, Metadata.USER_DEFINED_METADATA_NAME_PREFIX));
 				fileProperty.setPropertyValue(mdata.get(propertyName));
 				thxFileMapper.insertFileProperty(fileProperty);
 			}
 		}
+	}
 
+	private class ThxContentHandler extends ContentHandlerDecorator {
+		final private static int MAX_PROCESS_DATA_SIZE = 1024 * 1024 * 20;
+		//final private static int MAX_PROCESS_DATA_SIZE = 1024 * 5;
+		private StringBuilder stringBuilder = new StringBuilder();
+		private String contentKey = null;
+		private int index = 0;
+
+		public ThxContentHandler(String contentKey) {
+			this.contentKey = contentKey;
+		}
+
+		@Override
+		public void characters(char[] ch, int start, int length) {
+			try {
+				stringBuilder.append(new String(ch, start, length));
+				if (stringBuilder.length() >= MAX_PROCESS_DATA_SIZE) {
+					tossToES(this.contentKey, stringBuilder.toString());
+					index++;
+					stringBuilder = new StringBuilder();
+				}
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+		}
+
+		@Override
+		public String toString() {
+			return stringBuilder.toString();
+		}
+
+		public void finalize() throws Exception {
+			if (stringBuilder.length() > 0) {
+				tossToES(this.contentKey, stringBuilder.toString());
+			}
+		}
+
+		private void tossToES(String contentKey, String content) throws Exception {
+
+			RestClient restClient = RestClient.builder(new HttpHost(ES_END_POINT, 443, "https")).build();
+
+			RestHighLevelClient client = new RestHighLevelClient(restClient);
+
+			HashMap<String, Object> insertMap = new HashMap<>();
+			insertMap.put("storedFileName", contentKey);
+			insertMap.put("content" + index, content);
+
+			HashMap<String, Object> updateMap = new HashMap<>();
+			updateMap.put("content" + index, content);
+
+			UpdateRequest updateRequest = new UpdateRequest("thxcloud", "doc", contentKey).doc(updateMap).upsert(insertMap);
+
+			UpdateResponse updateResponse = client.update(updateRequest);
+
+			Result result = updateResponse.getResult();
+			switch (result) {
+			case CREATED:
+			case UPDATED:
+			case DELETED:
+			case NOOP:
+			default:
+			}
+
+		}
 	}
 
 	static private String ES_END_POINT = "search-thxcloud-y5obigmkoyu4ig5j6inq22kqii.ap-northeast-2.es.amazonaws.com";
-
-	private void tossToES(String contentKey, String content) throws Exception {
-		RestClient restClient = RestClient.builder(new HttpHost(ES_END_POINT, 443, "https")).build();
-		RestHighLevelClient client = new RestHighLevelClient(restClient);
-
-		HashMap<String, Object> jsonMap = new HashMap<>();
-		jsonMap.put("storedFileName", contentKey);
-		jsonMap.put("content", content);
-		IndexRequest indexRequest = new IndexRequest("thxcloud", "doc", contentKey).source(jsonMap);
-
-		IndexResponse indexResponse = client.index(indexRequest);
-
-		Result result = indexResponse.getResult();
-		switch (result) {
-		case CREATED:
-		case UPDATED:
-		default:
-		}
-
-		// search
-		SearchRequest searchRequest = new SearchRequest();
-		SearchSourceBuilder sourceBuilder = new SearchSourceBuilder();
-		sourceBuilder.query(QueryBuilders.termQuery("content", "손기철"));
-
-		searchRequest.source(sourceBuilder);
-		SearchResponse searchResponse = client.search(searchRequest);
-
-		SearchHits hits = searchResponse.getHits();
-		SearchHit[] searchHits = hits.getHits();
-		String sourceAsString = null;
-		for (SearchHit hit : searchHits) {
-			sourceAsString = hit.getSourceAsString();
-		}
-	}
 
 	// uuid 생성
 	public String getUuid() {
@@ -170,9 +203,36 @@ public class FileServiceImpl implements FileService {
 	}
 
 	@Override
-	public List<ThxFile> getFileList() throws Exception {
+	public List<ThxFile> getFileList(String fullTextSearchParam) throws Exception {
 		HashMap<String, Object> paramMap = new HashMap<>();
-		return thxFileMapper.selectFileList(paramMap);
+		List<ThxFile> fileList = new ArrayList<>();
+		if (!StringUtils.isBlank(fullTextSearchParam)) {
+			RestClient restClient = RestClient.builder(new HttpHost(ES_END_POINT, 443, "https")).build();
+			RestHighLevelClient client = new RestHighLevelClient(restClient);
+
+			// search
+			SearchRequest searchRequest = new SearchRequest();
+			SearchSourceBuilder sourceBuilder = new SearchSourceBuilder();
+			sourceBuilder.query(QueryBuilders.multiMatchQuery(fullTextSearchParam, "_all"));//matchQuery("content*", fullTextSearchParam));
+
+			searchRequest.source(sourceBuilder);
+			SearchResponse searchResponse = client.search(searchRequest);
+
+			SearchHits hits = searchResponse.getHits();
+			SearchHit[] searchHits = hits.getHits();
+			for (SearchHit hit : searchHits) {
+				Map<String, Object> source = hit.getSourceAsMap();
+				String storedFileName = (String) source.get("storedFileName");
+				paramMap.put("storedFileName", storedFileName);
+				List<ThxFile> thxFileList = thxFileMapper.selectFileList(paramMap);
+				if (thxFileList.size() > 0) {
+					fileList.addAll(thxFileList);
+				}
+			}
+		} else {
+			fileList = thxFileMapper.selectFileList(paramMap);
+		}
+		return fileList;
 	}
 
 	@Override
@@ -186,8 +246,7 @@ public class FileServiceImpl implements FileService {
 		if (fileList != null && fileList.size() > 0) {
 			ThxFile thxFile = fileList.get(0);
 
-			AmazonS3 s3Client = AmazonS3ClientBuilder.standard().withRegion(Regions.AP_NORTHEAST_2)
-					.withCredentials(new ProfileCredentialsProvider()).build();
+			AmazonS3 s3Client = AmazonS3ClientBuilder.standard().withRegion(Regions.AP_NORTHEAST_2).withCredentials(new ProfileCredentialsProvider()).build();
 
 			S3Object object = s3Client.getObject(new GetObjectRequest("thxcloud.com", thxFile.getStoredFileName()));
 			ObjectMetadata metaData = object.getObjectMetadata();
@@ -211,8 +270,7 @@ public class FileServiceImpl implements FileService {
 		}
 	}
 
-	private void setFileName(HttpServletRequest request, HttpServletResponse response, String fileName)
-			throws Exception {
+	private void setFileName(HttpServletRequest request, HttpServletResponse response, String fileName) throws Exception {
 		String header = request.getHeader("User-Agent");
 		if (header.contains("MSIE") || header.contains("Trident")) {
 			response.setHeader("Content-Disposition", "attachment;filename=" + fileName + ";");
@@ -247,19 +305,18 @@ public class FileServiceImpl implements FileService {
 		if (fileList != null && fileList.size() > 0) {
 			ThxFile thxFile = fileList.get(0);
 
-			//DB 삭제
+			// DB 삭제
 			thxFileMapper.deleteFileProperty(fileId);
 			thxFileMapper.deleteFile(fileId);
 
-			//s3 삭제
-			AmazonS3 s3Client = AmazonS3ClientBuilder.standard().withRegion(Regions.AP_NORTHEAST_2)
-					.withCredentials(new ProfileCredentialsProvider()).build();
+			// s3 삭제
+			AmazonS3 s3Client = AmazonS3ClientBuilder.standard().withRegion(Regions.AP_NORTHEAST_2).withCredentials(new ProfileCredentialsProvider()).build();
 			s3Client.deleteObject(new DeleteObjectRequest("thxcloud.com", thxFile.getStoredFileName()));
-			
-			//ES삭제
+
+			// ES삭제
 			RestClient restClient = RestClient.builder(new HttpHost(ES_END_POINT, 443, "https")).build();
 			RestHighLevelClient client = new RestHighLevelClient(restClient);
-			
+
 			DeleteRequest deleteRequest = new DeleteRequest("thxcloud", "doc", thxFile.getStoredFileName());
 			client.delete(deleteRequest);
 		}
@@ -267,8 +324,7 @@ public class FileServiceImpl implements FileService {
 	}
 
 	@Override
-	public HashMap<String, Object> putFileProperty(long fileId, List<HashMap<String, Object>> properties)
-			throws Exception {
+	public HashMap<String, Object> putFileProperty(long fileId, List<HashMap<String, Object>> properties) throws Exception {
 		HashMap<String, Object> returnMap = new HashMap<>();
 		returnMap.put("result", "success");
 
@@ -286,8 +342,7 @@ public class FileServiceImpl implements FileService {
 			PDDocument pddocument = null;
 			try {
 				// AWS S3 에서 문서 가져옴
-				AmazonS3 s3Client = AmazonS3ClientBuilder.standard().withRegion(Regions.AP_NORTHEAST_2)
-						.withCredentials(new ProfileCredentialsProvider()).build();
+				AmazonS3 s3Client = AmazonS3ClientBuilder.standard().withRegion(Regions.AP_NORTHEAST_2).withCredentials(new ProfileCredentialsProvider()).build();
 				S3Object object = s3Client.getObject(new GetObjectRequest("thxcloud.com", thxFile.getStoredFileName()));
 				ObjectMetadata objectMetaData = object.getObjectMetadata();
 				s3ObjectInputStream = object.getObjectContent();
@@ -344,8 +399,7 @@ public class FileServiceImpl implements FileService {
 				// 속성이 변경된 문서를 다시 AWS S3에 씀
 				ByteArrayInputStream in = new ByteArrayInputStream(out.toByteArray());
 				objectMetaData.setContentLength(out.toByteArray().length);
-				s3Client.putObject(
-						new PutObjectRequest("thxcloud.com", thxFile.getStoredFileName(), in, objectMetaData));
+				s3Client.putObject(new PutObjectRequest("thxcloud.com", thxFile.getStoredFileName(), in, objectMetaData));
 
 				// DB에 있는 속성 정보 변경
 				thxFileMapper.deleteFileProperty(fileId);
@@ -381,8 +435,7 @@ public class FileServiceImpl implements FileService {
 		return returnMap;
 	}
 
-	private void setPdfProperty(List<HashMap<String, Object>> properties, List<ThxFileProperty> storedProperties,
-			PDDocument pddocument) {
+	private void setPdfProperty(List<HashMap<String, Object>> properties, List<ThxFileProperty> storedProperties, PDDocument pddocument) {
 		PDDocumentInformation documentInformation = pddocument.getDocumentInformation();
 		COSDictionary dic = documentInformation.getCOSObject();
 		for (ThxFileProperty fileProperty : storedProperties) {
@@ -419,8 +472,7 @@ public class FileServiceImpl implements FileService {
 		summaryInfo.setCustomProperties(customProperties);
 	}
 
-	private void setDocOOXMLProperty(List<HashMap<String, Object>> properties, POIXMLDocument xmlDocument)
-			throws Exception {
+	private void setDocOOXMLProperty(List<HashMap<String, Object>> properties, POIXMLDocument xmlDocument) throws Exception {
 		POIXMLProperties pOIXMLPropertie = xmlDocument.getProperties();
 		POIXMLProperties.CustomProperties customProperties = pOIXMLPropertie.getCustomProperties();
 
