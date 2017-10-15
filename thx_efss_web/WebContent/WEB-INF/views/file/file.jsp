@@ -3,7 +3,7 @@
 	<div class="form-group">
 		<input type="file" name="file" class="form-control">
 	</div>
-	<input type="hidden" name="${_csrf.parameterName}"	value="${_csrf.token}"/>
+	<!-- input type="hidden" name="${_csrf.parameterName}"	value="${_csrf.token}"/-->
 	<button type="submit" class="btn btn-default">업로드</button>
 	
 	<div class="form-group">
@@ -67,8 +67,8 @@ $(document).ready(function(){
 	getFileList();
 	
 	$('#propertyConfirm').on('click', function(e){
-		var token = $("meta[name='_csrf']").attr("content");
-		var header = $("meta[name='_csrf_header']").attr("content");
+		//var token = $("meta[name='_csrf']").attr("content");
+		//var header = $("meta[name='_csrf_header']").attr("content");
 		
 		var propertyList = new Array();
 		var fileId = $('#fileProperty').data('fileId');
@@ -91,9 +91,9 @@ $(document).ready(function(){
 			success : function(data) {
 				
 			},
-			beforeSend : function(xhr){
-		    	xhr.setRequestHeader(header, token);
-			},
+			//beforeSend : function(xhr){
+		    //	xhr.setRequestHeader(header, token);
+			//},
 			error : function(request, status, error) {
 				alert(status + ":" + error);
 			}
@@ -222,16 +222,16 @@ function removeProperty(e) {
 }
 
 function deleteFile(fileId) {
-	var token = $("meta[name='_csrf']").attr("content");
-	var header = $("meta[name='_csrf_header']").attr("content");
+	//var token = $("meta[name='_csrf']").attr("content");
+	//var header = $("meta[name='_csrf_header']").attr("content");
 	
 	$.ajax({
 		url: '/file/' + fileId,
 		type: 'delete',
 		//dataType : 'json',
-		beforeSend : function(xhr){
-	    	xhr.setRequestHeader(header, token);
-		},
+		//beforeSend : function(xhr){
+	    //	xhr.setRequestHeader(header, token);
+		//},
 		success: function(data){
 			getFileList();
 		},

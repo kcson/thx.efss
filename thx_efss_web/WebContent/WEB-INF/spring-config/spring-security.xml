@@ -19,6 +19,7 @@
 	
 	<security:http use-expressions="true" auto-config="true">
 		<!-- <security:intercept-url pattern="/**" access="isAuthenticated()" /> -->
+		<security:csrf disabled="true"/>
 		
 		<security:access-denied-handler
 			error-page="/error"
