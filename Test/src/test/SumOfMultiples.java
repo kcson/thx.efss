@@ -4,7 +4,7 @@ public class SumOfMultiples {
 
 	public static void main(String[] args) {
 		if (args.length < 2) {
-			System.out.println("usage : SumOfMultiples 5 7");
+			System.out.println("usage : SumOfMultiples [number1] [number2]");
 			return;
 		}
 
@@ -14,6 +14,7 @@ public class SumOfMultiples {
 			b = Integer.parseInt(args[1]);
 		} catch (NumberFormatException e) {
 			System.out.println("숫자만 입력 가능 합니다.");
+			return;
 		}
 
 		// 1000 보다 작은 배수의 수
