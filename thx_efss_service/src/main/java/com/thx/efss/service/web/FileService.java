@@ -12,7 +12,7 @@ import com.thx.efss.dao.bean.ThxFile;
 import com.thx.efss.dao.bean.ThxFileProperty;
 
 public interface FileService {
-	public void saveFile(MultipartFile uploadFile) throws Exception;
+	public void saveFile(MultipartFile uploadFile, String contentKey) throws Exception;
 
 	public void downloadFile(long fileId, HttpServletRequest request, HttpServletResponse response) throws Exception;
 

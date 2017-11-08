@@ -79,9 +79,13 @@ public class FileServiceImpl implements FileService {
 
 	@Override
 	@Transactional
-	public void saveFile(MultipartFile uploadFile) throws Exception {
+	public void saveFile(MultipartFile uploadFile, String contentKey) throws Exception {
 		String originFileName = new String(uploadFile.getOriginalFilename().getBytes("8859_1"), "UTF-8");
-		String contentKey = getUuid();
+		boolean isInsert = false;
+		if (StringUtils.isBlank(contentKey)) {
+			isInsert = true;
+			contentKey = getUuid();
+		}
 
 		// int thresHold =
 		// commonsMultipartResolver.getFileItemFactory().getSizeThreshold();
@@ -112,27 +116,29 @@ public class FileServiceImpl implements FileService {
 		// tossToES(contentKey, contenthandler.toString());
 
 		// s3에 저장 성공하면 DB에 파일 관련 정보 저장
-		ThxFile thxFile = new ThxFile();
-		thxFile.setOriginalFileName(originFileName);
-		thxFile.setStoredFileName(contentKey);
+		if (isInsert) {
+			ThxFile thxFile = new ThxFile();
+			thxFile.setOriginalFileName(originFileName);
+			thxFile.setStoredFileName(contentKey);
 
-		thxFileMapper.insertFile(thxFile);
+			thxFileMapper.insertFile(thxFile);
 
-		String[] metadataNames = mdata.names();
-		ThxFileProperty fileProperty = new ThxFileProperty();
-		fileProperty.setFileId(thxFile.getId());
-		for (String propertyName : metadataNames) {
-			if (StringUtils.contains(propertyName, Metadata.USER_DEFINED_METADATA_NAME_PREFIX)) {
-				fileProperty.setPropertyKey(StringUtils.substringAfter(propertyName, Metadata.USER_DEFINED_METADATA_NAME_PREFIX));
-				fileProperty.setPropertyValue(mdata.get(propertyName));
-				thxFileMapper.insertFileProperty(fileProperty);
+			String[] metadataNames = mdata.names();
+			ThxFileProperty fileProperty = new ThxFileProperty();
+			fileProperty.setFileId(thxFile.getId());
+			for (String propertyName : metadataNames) {
+				if (StringUtils.contains(propertyName, Metadata.USER_DEFINED_METADATA_NAME_PREFIX)) {
+					fileProperty.setPropertyKey(StringUtils.substringAfter(propertyName, Metadata.USER_DEFINED_METADATA_NAME_PREFIX));
+					fileProperty.setPropertyValue(mdata.get(propertyName));
+					thxFileMapper.insertFileProperty(fileProperty);
+				}
 			}
 		}
 	}
 
 	private class ThxContentHandler extends ContentHandlerDecorator {
 		final private static int MAX_PROCESS_DATA_SIZE = 1024 * 1024 * 20;
-		//final private static int MAX_PROCESS_DATA_SIZE = 1024 * 5;
+		// final private static int MAX_PROCESS_DATA_SIZE = 1024 * 5;
 		private StringBuilder stringBuilder = new StringBuilder();
 		private String contentKey = null;
 		private int index = 0;
@@ -213,7 +219,7 @@ public class FileServiceImpl implements FileService {
 			// search
 			SearchRequest searchRequest = new SearchRequest();
 			SearchSourceBuilder sourceBuilder = new SearchSourceBuilder();
-			sourceBuilder.query(QueryBuilders.multiMatchQuery(fullTextSearchParam, "_all"));//matchQuery("content*", fullTextSearchParam));
+			sourceBuilder.query(QueryBuilders.multiMatchQuery(fullTextSearchParam, "_all"));// matchQuery("content*", fullTextSearchParam));
 
 			searchRequest.source(sourceBuilder);
 			SearchResponse searchResponse = client.search(searchRequest);
