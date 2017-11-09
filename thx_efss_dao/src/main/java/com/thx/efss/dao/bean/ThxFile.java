@@ -36,8 +36,8 @@ public class ThxFile {
 		this.storedFileName = storedFileName;
 	}
 
-	public Date getUpdateDate() {
-		return updateDate;
+	public String getUpdateDate() {
+		return  DateFormatUtils.format(this.updateDate, DateFormatUtils.ISO_DATETIME_FORMAT.getPattern(),TimeZone.getDefault());
 	}
 
 	public void setUpdateDate(Date updateDate) {

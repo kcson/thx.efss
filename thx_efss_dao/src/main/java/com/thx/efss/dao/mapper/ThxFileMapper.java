@@ -21,4 +21,7 @@ public interface ThxFileMapper {
 
 	public int deleteFileProperty(@Param("fileId") long fileId);
 
+	public int updateFile(ThxFile file);
+
+	public int updateFileMtime(@Param("storedFileName") String storedFileName);
 }

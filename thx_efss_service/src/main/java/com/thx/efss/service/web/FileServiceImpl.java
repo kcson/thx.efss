@@ -116,7 +116,7 @@ public class FileServiceImpl implements FileService {
 		// tossToES(contentKey, contenthandler.toString());
 
 		// s3에 저장 성공하면 DB에 파일 관련 정보 저장
-		if (isInsert) { 
+		if (isInsert) {
 			ThxFile thxFile = new ThxFile();
 			thxFile.setOriginalFileName(originFileName);
 			thxFile.setStoredFileName(contentKey);
@@ -133,6 +133,9 @@ public class FileServiceImpl implements FileService {
 					thxFileMapper.insertFileProperty(fileProperty);
 				}
 			}
+		} else {
+			// 수정 시간 업데이트
+			thxFileMapper.updateFileMtime(contentKey);
 		}
 	}
 

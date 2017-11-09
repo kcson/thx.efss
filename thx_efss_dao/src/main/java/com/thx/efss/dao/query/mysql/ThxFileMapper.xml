@@ -9,6 +9,7 @@
 		<result property="originalFileName" column="original_file_name"/>
 		<result property="storedFileName" column="stored_file_name"/>
 		<result property="entryDate" column="entry_date"/>
+		<result property="updateDate" column="update_date"/>
 	</resultMap>
 
 	<resultMap type="ThxFileProperty" id="ThxFilePropertyMap">
@@ -21,12 +22,14 @@
     <sql id="columnsAll">
 		original_file_name,
 		stored_file_name,
-		entry_date
+		entry_date,
+		update_date
     </sql>
     
     <sql id="valuesAll">
 		#{originalFileName},
 		#{storedFileName},
+		 UTC_TIMESTAMP(),
 		 UTC_TIMESTAMP()
     </sql>
 	
@@ -100,5 +103,21 @@
 		WHERE
 			file_id = #{fileId}
 	</delete>
+	
+	<update id="updateFile" parameterType="ThxFile">
+		UPDATE thx_file
+		SET 
+			update_date = UTC_TIMESTAMP()
+		WHERE
+			id = #{id}	
+	</update>
+	
+	<update id="updateFileMtime">
+		UPDATE thx_file
+		SET 
+			update_date = UTC_TIMESTAMP()
+		WHERE
+			stored_file_name = #{storedFileName}	
+	</update>
 	
 </mapper>    
