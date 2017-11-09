@@ -30,10 +30,10 @@ public class FileController {
 	FileService fileService;
 
 	@RequestMapping(value = "/file", method = RequestMethod.POST) // method = RequestMethod.GET
-	public String fileUpload(@RequestParam("file") MultipartFile uploadFile) {
+	public String fileUpload(@RequestParam("file") MultipartFile uploadFile, @RequestParam(value="contentKey",required=false) String contentKey) {
 		try {
 			if (uploadFile != null) {
-				fileService.saveFile(uploadFile);
+				fileService.saveFile(uploadFile, contentKey);
 			}
 		} catch (IOException e) {
 			e.printStackTrace();

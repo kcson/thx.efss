@@ -2,9 +2,15 @@ package com.thx.efss.service.web;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -14,6 +20,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.time.DateFormatUtils;
 import org.apache.http.HttpHost;
 import org.apache.pdfbox.cos.COSDictionary;
 import org.apache.pdfbox.cos.COSName;
@@ -79,9 +86,15 @@ public class FileServiceImpl implements FileService {
 
 	@Override
 	@Transactional
-	public void saveFile(MultipartFile uploadFile) throws Exception {
+	public void saveFile(MultipartFile uploadFile, String contentKey) throws Exception {
 		String originFileName = new String(uploadFile.getOriginalFilename().getBytes("8859_1"), "UTF-8");
-		String contentKey = getUuid();
+		boolean isInsert = false;
+		if (StringUtils.isBlank(contentKey)) {
+			isInsert = true;
+			contentKey = getUuid();
+		}
+		
+		String filePath = saveUploadedFile(uploadFile.getInputStream());
 
 		// int thresHold =
 		// commonsMultipartResolver.getFileItemFactory().getSizeThreshold();
@@ -112,27 +125,58 @@ public class FileServiceImpl implements FileService {
 		// tossToES(contentKey, contenthandler.toString());
 
 		// s3에 저장 성공하면 DB에 파일 관련 정보 저장
-		ThxFile thxFile = new ThxFile();
-		thxFile.setOriginalFileName(originFileName);
-		thxFile.setStoredFileName(contentKey);
+		if (isInsert) {
+			ThxFile thxFile = new ThxFile();
+			thxFile.setOriginalFileName(originFileName);
+			thxFile.setStoredFileName(contentKey);
 
-		thxFileMapper.insertFile(thxFile);
+			thxFileMapper.insertFile(thxFile);
 
-		String[] metadataNames = mdata.names();
-		ThxFileProperty fileProperty = new ThxFileProperty();
-		fileProperty.setFileId(thxFile.getId());
-		for (String propertyName : metadataNames) {
-			if (StringUtils.contains(propertyName, Metadata.USER_DEFINED_METADATA_NAME_PREFIX)) {
-				fileProperty.setPropertyKey(StringUtils.substringAfter(propertyName, Metadata.USER_DEFINED_METADATA_NAME_PREFIX));
-				fileProperty.setPropertyValue(mdata.get(propertyName));
-				thxFileMapper.insertFileProperty(fileProperty);
+			String[] metadataNames = mdata.names();
+			ThxFileProperty fileProperty = new ThxFileProperty();
+			fileProperty.setFileId(thxFile.getId());
+			for (String propertyName : metadataNames) {
+				if (StringUtils.contains(propertyName, Metadata.USER_DEFINED_METADATA_NAME_PREFIX)) {
+					fileProperty.setPropertyKey(StringUtils.substringAfter(propertyName, Metadata.USER_DEFINED_METADATA_NAME_PREFIX));
+					fileProperty.setPropertyValue(mdata.get(propertyName));
+					thxFileMapper.insertFileProperty(fileProperty);
+				}
 			}
 		}
 	}
+	
+	public String saveUploadedFile(InputStream in) throws Exception {
+		String storageHome = System.getProperty("thx.home") + File.separatorChar + "filestorage";
+		
+		Date toDay = new Date();
+		String yyyy = DateFormatUtils.format(toDay, "yyyy");
+		String MM = DateFormatUtils.format(toDay, "MM");
+		String dd = DateFormatUtils.format(toDay, "dd");
+		
+		Path storeDir = Paths.get(storageHome + File.separatorChar + yyyy + File.separatorChar + MM + File.separatorChar + dd);
+		if(!Files.exists(storeDir)) {
+			Files.createDirectories(storeDir);
+		}
+
+		Path fileFullPath = Paths.get(storeDir.toString(), getUuid());
+		
+		byte[] buffer = new byte[8*1024];
+		int readBytes = 0;
+		try(OutputStream out = Files.newOutputStream(fileFullPath, StandardOpenOption.WRITE,StandardOpenOption.CREATE)) {
+			while((readBytes = in.read(buffer)) != -1) {
+				out.write(buffer, 0, readBytes);
+			}
+		}catch(Exception e) {
+			throw e;
+		}
+		
+		return fileFullPath.toString();
+	}
+
 
 	private class ThxContentHandler extends ContentHandlerDecorator {
 		final private static int MAX_PROCESS_DATA_SIZE = 1024 * 1024 * 20;
-		//final private static int MAX_PROCESS_DATA_SIZE = 1024 * 5;
+		// final private static int MAX_PROCESS_DATA_SIZE = 1024 * 5;
 		private StringBuilder stringBuilder = new StringBuilder();
 		private String contentKey = null;
 		private int index = 0;
@@ -213,7 +257,7 @@ public class FileServiceImpl implements FileService {
 			// search
 			SearchRequest searchRequest = new SearchRequest();
 			SearchSourceBuilder sourceBuilder = new SearchSourceBuilder();
-			sourceBuilder.query(QueryBuilders.multiMatchQuery(fullTextSearchParam, "_all"));//matchQuery("content*", fullTextSearchParam));
+			sourceBuilder.query(QueryBuilders.multiMatchQuery(fullTextSearchParam, "_all"));// matchQuery("content*", fullTextSearchParam));
 
 			searchRequest.source(sourceBuilder);
 			SearchResponse searchResponse = client.search(searchRequest);
